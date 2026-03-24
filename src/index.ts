@@ -1,0 +1,1 @@
+export { installPlugin } from "./plugin"
