@@ -2,11 +2,18 @@
   "name": "cypress-visual-eval",
   "version": "0.0.1",
   "description": "AI-powered visual regression evaluation for Cypress",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "licens": "MIT",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup",
+    "build:watch": "tsup --watch"
   },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alex-berk/cypress-visual-eval.git"
@@ -30,5 +37,14 @@
     "cypress": {
       "optional": false
     }
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "cypress": "^15.13.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   }
 }
