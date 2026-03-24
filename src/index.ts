@@ -1,1 +1,1 @@
-export { installPlugin } from "./plugin"
+export { visualEvalPlugin } from "./plugin"
