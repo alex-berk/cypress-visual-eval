@@ -4,14 +4,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "ignoreDeprecations": "6.0",
-    "types": [
-      "Cypress"
-    ]
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "src"

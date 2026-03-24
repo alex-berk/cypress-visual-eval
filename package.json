@@ -14,6 +14,18 @@
     "dist"
   ],
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./commands": {
+      "types": "./dist/commands.d.ts",
+      "import": "./dist/commands.js",
+      "require": "./dist/commands.cjs"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alex-berk/cypress-visual-eval.git"
