@@ -22,5 +22,13 @@
     "url": "https://github.com/alex-berk/cypress-visual-eval/issues"
   },
   "homepage": "https://github.com/alex-berk/cypress-visual-eval#readme",
-  "license": "MIT"
+  "license": "MIT",
+  "peerDependencies": {
+    "cypress": ">=12"
+  },
+  "peerDependenciesMeta": {
+    "cypress": {
+      "optional": false
+    }
+  }
 }
