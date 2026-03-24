@@ -1,0 +1,25 @@
+{
+  "name": "cypress-visual-eval",
+  "version": "0.0.1",
+  "description": "AI-powered visual regression evaluation for Cypress",
+  "main": "index.js",
+  "licens": "MIT",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-berk/cypress-visual-eval.git"
+  },
+  "keywords": [
+    "cypress",
+    "visual-testing",
+    "regression-testing",
+    "ai"
+  ],
+  "author": "Alex Berk <aleks.berkov@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/alex-berk/cypress-visual-eval/issues"
+  },
+  "homepage": "https://github.com/alex-berk/cypress-visual-eval#readme"
+}
