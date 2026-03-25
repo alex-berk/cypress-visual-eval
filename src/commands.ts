@@ -1,5 +1,9 @@
 /// <reference types="cypress" />
 
-Cypress.Commands.add('visualTest', (name?: string) => {
-  cy.log(`Hi, ${name || "unkown"}!`)
+Cypress.Commands.add('visualTest', (name: string, screenshotOptions?: Partial<Cypress.ScreenshotOptions>) => {
+  cy.log(name ?? 'undefinedName')
+  cy.screenshot(name, { overwrite: true, ...screenshotOptions })
+  if (false) {
+    cy.task('visualEvalMoveScreenshot', { name })
+  }
 })

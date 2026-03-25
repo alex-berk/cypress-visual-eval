@@ -1,7 +1,7 @@
 declare global {
   namespace Cypress {
     interface Chainable {
-      visualTest(name: string): Chainable<void>
+      visualTest(name: string, screenshotOptions?: Partial<Cypress.ScreenshotOptions>): Chainable<void>
     }
   }
 }
