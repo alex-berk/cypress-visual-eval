@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG, PNGWithMetadata } from 'pngjs';
-import pixelmatch from "pixelmatch";
+import pixelmatchPkg from "pixelmatch";
+const pixelmatch = (pixelmatchPkg as any).default ?? pixelmatchPkg
 
 function loadImangeData(imgPath: string): PNGWithMetadata {
   const imgBuffer = fs.readFileSync(imgPath)
