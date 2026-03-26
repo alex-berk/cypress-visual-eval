@@ -13,16 +13,16 @@ export function visualEvalPlugin(
   const screenshotsEvalFolder = path.join(cypressScreenshotsFolder, 'visualEval')
 
   on('task', {
-    visualEvalGenerateBase({ name, spec }: { name: string, spec: string }) {
+    visualEvalGenerateBase({ name, spec }: { name: string, spec: string }): string {
       return moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsBaseFolder)
     },
     visualEvalCompareScreenshots({ name, spec, aiEnabled, threshold }: { name: string, spec: string, aiEnabled: boolean, threshold?: number }) {
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
-      const diff = imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, threshold)
-      if (aiEnabled && diff >= 0) {
+      const { pixelCount, baselineBase64, evalBase64, diffBase64 } = imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, threshold)
+      if (aiEnabled && pixelCount >= 0) {
         throw new Error('AI wasn\'t set up')
       } else {
-        return diff === 0
+        return pixelCount === 0
       }
     }
   })
