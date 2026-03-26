@@ -1,7 +1,7 @@
 /// <reference types="cypress" />
 import path from 'path'
 import { moveScreenshot } from "./tasks/moveScreenshot";
-import { compareToBase } from "./tasks/compareToBase";
+import { imgDiff } from "./tasks/imgDiff";
 // import { promptAi } from "./tasks/promptAi";
 
 export function visualEvalPlugin(
@@ -16,14 +16,13 @@ export function visualEvalPlugin(
     visualEvalGenerateBase({ name, spec }: { name: string, spec: string }) {
       return moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsBaseFolder)
     },
-    visualEvalCompareScreenshots({ name, spec, aiEnabled, threshold = 0 }: { name: string, spec: string, aiEnabled: boolean, threshold?: number }) {
+    visualEvalCompareScreenshots({ name, spec, aiEnabled, threshold }: { name: string, spec: string, aiEnabled: boolean, threshold?: number }) {
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
-      const diff = compareToBase(name, threshold)
-      if (aiEnabled && diff >= threshold) {
-        return null
-        // return promptAi()
+      const diff = imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, threshold)
+      if (aiEnabled && diff >= 0) {
+        throw new Error('AI wasn\'t set up')
       } else {
-        return diff <= threshold
+        return diff === 0
       }
     }
   })
