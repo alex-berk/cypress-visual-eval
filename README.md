@@ -1,48 +1,176 @@
 # cypress-visual-eval
 
-AI-powered visual regression evaluation for Cypress.
+AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline, and uses a vision AI model to decide whether the difference is a bug or acceptable variance.
 
-## Overview
+Unlike pixel-diff tools that fail on every anti-aliasing change or font rendering difference, `cypress-visual-eval` understands context — a button 3px lower is fine, garbled text or a missing element is not.
 
-`cypress-visual-eval` is a testing utility that brings semantic understanding to visual regression testing. Instead of relying solely on pixel-by-pixel comparisons, it evaluates UI changes in context and determines whether they represent meaningful regressions or acceptable variations.
+---
 
-Traditional visual testing tools are often too sensitive—flagging minor layout shifts, anti-aliasing differences, or rendering inconsistencies as failures. This library takes a different approach by analyzing screenshots with the help of AI and making a higher-level decision: *is this change actually a bug?*
+## How it works
 
-## Key Idea
+1. `cy.visualTest('name')` takes a screenshot of the current state
+2. It's compared against a stored baseline image using pixel diffing
+3. Both images plus the diff are sent to a vision AI model
+4. The AI returns a pass/fail decision with a human-readable reason
+5. The test passes or fails based on that decision
 
-Given two screenshots:
+---
 
-- a **baseline** (expected state)
-- a **current** (new state)
+## Installation
 
-the system evaluates the differences and classifies them based on intent and impact.
+```bash
+npm install -D cypress-visual-eval
+```
 
-Examples:
+---
 
-- A button shifted a few pixels → acceptable
-- Slight spacing differences → acceptable
-- Text content changed → failure
-- Missing or broken UI elements → failure
+## Setup
 
-The goal is to reduce noise and make visual tests reflect real user-facing issues.
+### 1. Register the plugin
 
-## How It Works
+In `cypress.config.js`:
 
-At a high level, the library:
+```js
+import { setupVisualEval } from 'cypress-visual-eval'
 
-1. Captures or receives a screenshot of the current UI
-2. Compares it against a stored baseline image
-3. Uses an AI-based evaluation layer to interpret the differences
-4. Returns a structured result indicating whether the change is acceptable
+export default defineConfig({
+  e2e: {
+    setupNodeEvents(on, config) {
+      setupVisualEval(on, config, {
+        provider: 'claude',         // 'claude' | 'openai' | 'gemini'
+        baselineDir: 'cypress/visual-baselines', // optional, this is the default
+      })
+    }
+  }
+})
+```
 
-## Use Cases
+### 2. Import the command
 
-- Visual regression testing with reduced flakiness
-- Detecting unintended UI/content changes
-- Validating design consistency across deployments
-- Replacing or augmenting pixel-diff tools
+In `cypress/support/e2e.js`:
 
-## Status
+```js
+import 'cypress-visual-eval/commands'
+```
 
-Early-stage project. APIs and behavior are subject to change as the evaluation model and integration approach evolve.
+### 3. Add your API key
 
+For local development, add to `cypress.env.json` (this file should be in `.gitignore`):
+
+```json
+{
+  "AI_VISUAL_API_KEY": "your-api-key-here"
+}
+```
+
+For CI, set it as an environment variable in your pipeline:
+
+```bash
+# GitHub Actions, GitLab CI, etc.
+AI_VISUAL_API_KEY=your-api-key-here
+```
+
+The plugin resolves credentials in this order: environment variable → `cypress.env.json` → throws a clear error.
+
+---
+
+## Usage
+
+```js
+it('renders the homepage correctly', () => {
+  cy.visit('/')
+  cy.get('[data-cy=hero]').should('be.visible')
+  cy.visualTest('homepage-hero')
+})
+```
+
+You can pass any standard Cypress screenshot options as the second argument:
+
+```js
+cy.visualTest('hero-mobile', { viewport: { width: 375, height: 812 } })
+cy.visualTest('hero-clip', { clip: { x: 0, y: 0, width: 400, height: 300 } })
+```
+
+---
+
+## Updating baselines
+
+When you make intentional UI changes, run with the update flag to regenerate baselines:
+
+```bash
+CYPRESS_UPDATE_BASELINE=true cypress run
+```
+
+Baselines are stored as PNG files in `baselineDir` and should be committed to git so the whole team shares the same reference images.
+
+---
+
+## Providers
+
+| Provider | Model | Environment variable |
+|----------|-------|----------------------|
+| `claude` | claude-sonnet-4 | `AI_VISUAL_API_KEY` or `ANTHROPIC_API_KEY` |
+| `openai` | gpt-4o | `AI_VISUAL_API_KEY` or `OPENAI_API_KEY` |
+| `gemini` | gemini-1.5-pro | `AI_VISUAL_API_KEY` or `GEMINI_API_KEY` |
+
+You can override the model per-provider:
+
+```js
+setupVisualEval(on, config, {
+  provider: 'claude',
+  model: 'claude-opus-4-20250514',
+})
+```
+
+### Custom provider
+
+You can bring your own provider by passing a class that implements the `compare` method:
+
+```js
+import { setupVisualEval } from 'cypress-visual-eval'
+import { MyCustomProvider } from './myCustomProvider'
+
+setupVisualEval(on, config, {
+  provider: MyCustomProvider,
+})
+```
+
+The interface your class must implement:
+
+```ts
+interface VisualEvalProvider {
+  compare(
+    baseline: string,    // base64 PNG
+    screenshot: string,  // base64 PNG
+    diff: string,        // base64 PNG
+  ): Promise<{ pass: boolean; reason: string }>
+}
+```
+
+---
+
+## Security
+
+- Never commit `cypress.env.json` — add it to `.gitignore`
+- Never put API keys in `cypress.config.js`
+- In CI, always use secrets/environment variables, never hardcoded values
+
+A `.gitignore` snippet to add to your project:
+
+```
+cypress.env.json
+cypress/visual-baselines/*.png   # optional — see below
+```
+
+Whether to commit baseline images is a team decision. Committing them means everyone shares the same reference and CI has access without extra setup. Not committing them means baselines are local only and each environment generates its own.
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/alex-berk/cypress-visual-eval.git
+cd cypress-visual-eval
+npm install
+npm run dev    # watch mode — rebuilds on save
+```
