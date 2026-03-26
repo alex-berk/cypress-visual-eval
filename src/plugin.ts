@@ -9,8 +9,8 @@ export function visualEvalPlugin(
   const screenshotsFolder = options.screenshotsFolder as string ?? 'cypress/baseline'
   const cypressScreenshotsFolder = config.screenshotsFolder as string
   on('task', {
-    visualEvalMoveScreenshot({ name }: { name: string }) {
-      return moveScreenshot(name, cypressScreenshotsFolder, screenshotsFolder)
+    visualEvalMoveScreenshot({ name, spec }: { name: string, spec: string }) {
+      return moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsFolder)
     },
   })
 }
