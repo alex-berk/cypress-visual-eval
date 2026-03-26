@@ -1,9 +1,18 @@
 /// <reference types="cypress" />
+import path from 'path'
 
 Cypress.Commands.add('visualTest', (name: string, screenshotOptions?: Partial<Cypress.ScreenshotOptions>) => {
-  cy.log(name ?? 'undefinedName')
-  cy.screenshot(name, { overwrite: true, ...screenshotOptions })
-  if (Cypress.expose('GENERATE_BASELINE') === 'TRUE') {
-    cy.task('visualEvalMoveScreenshot', { name, spec: Cypress.spec.name })
+  const spec = Cypress.spec.name
+  const generateBaseline = Cypress.expose('GENERATE_BASELINE') === 'TRUE'
+  const aiEnabled = Cypress.expose('VISUAL_EVAL_AI_DISABLED') !== 'TRUE'
+
+  if (generateBaseline) {
+    cy.screenshot(name, { overwrite: true, ...screenshotOptions })
+    cy.task('visualEvalGenerateBase', { name, spec })
+  } else {
+    // const screenshotPath = path.join('visualEval', name)
+    const screenshotPath = `ve-${name}`
+    cy.screenshot(screenshotPath, { overwrite: true, ...screenshotOptions })
+    cy.task('visualEvalCompareScreenshots', { name, spec, aiEnabled })
   }
 })

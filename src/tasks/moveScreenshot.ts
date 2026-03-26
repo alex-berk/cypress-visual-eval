@@ -5,9 +5,11 @@ export function moveScreenshot(
   name: string,
   spec: string,
   from: string,
-  to: string
+  to: string,
+  namePrefix?: string
 ): string {
-  const src = path.join(from, spec, `${name}.png`)
+  const srcName = namePrefix ? `${namePrefix}${name}` : name
+  const src = path.join(from, spec, `${srcName}.png`)
   const dest = path.join(to, `${name}.png`)
 
   fs.mkdirSync(path.dirname(dest), { recursive: true })
