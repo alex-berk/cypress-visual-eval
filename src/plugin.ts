@@ -7,7 +7,8 @@ import { CompareResult } from './providers/types';
 
 export type VisualEvalOptions = ProviderConfig & {
   baselineDir?: string,
-  screenshotsDir?: string
+  screenshotsDir?: string,
+  debug?: boolean
 }
 
 export function visualEvalPlugin(
@@ -34,7 +35,11 @@ export function visualEvalPlugin(
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
         }
-        return provider.compare(baselineBase64, evalBase64, diffBase64);
+        const result = await provider.compare(baselineBase64, evalBase64, diffBase64);
+        if (options.debug) {
+          console.log(`[cypress-visual-eval] "${name}" — pass: ${result.pass}, reason: ${result.reason}`)
+        }
+        return result
       } else {
         const pass = pixelCount === 0
         const reason = pass ? 'Images are identical' : 'Differences detected, AI fallback disabled'
