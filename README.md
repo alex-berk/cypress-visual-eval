@@ -1,18 +1,19 @@
 # cypress-visual-eval
 
-AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline, and uses a vision AI model to decide whether the difference is a bug or acceptable variance.
+AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline using pixel diffing, and — only when a difference is detected — uses a vision AI model to decide whether the difference is a real bug or acceptable variance.
 
-Unlike pixel-diff tools that fail on every anti-aliasing change or font rendering difference, `cypress-visual-eval` understands context — a button 3px lower is fine, garbled text or a missing element is not.
+The AI acts as a fallback filter, not a primary gate. If images are identical, the test passes immediately with no API call. If a pixel diff is detected, the AI receives the baseline, the current screenshot, and the diff image, and returns a pass/fail decision with a human-readable reason. This means rendering noise and minor positional shifts no longer fail your build, while actual regressions — broken text, missing elements, wrong colors — still do.
 
 ---
 
 ## How it works
 
 1. `cy.visualTest('name')` takes a screenshot of the current state
-2. It's compared against a stored baseline image using pixel diffing
-3. Both images plus the diff are sent to a vision AI model
-4. The AI returns a pass/fail decision with a human-readable reason
-5. The test passes or fails based on that decision
+2. It's compared against a stored baseline using [pixelmatch](https://github.com/mapbox/pixelmatch)
+3. **If the diff is zero — pass immediately.** No AI call, no cost.
+4. **If a diff is detected** — the baseline, screenshot, and diff image are sent to a vision AI model
+5. The AI returns `{ pass: boolean, reason: string }`
+6. The test passes or fails based on that decision
 
 ---
 
@@ -31,14 +32,14 @@ npm install -D cypress-visual-eval
 In `cypress.config.js`:
 
 ```js
-import { setupVisualEval } from 'cypress-visual-eval'
+import { visualEvalPlugin } from 'cypress-visual-eval'
 
 export default defineConfig({
   e2e: {
     setupNodeEvents(on, config) {
-      setupVisualEval(on, config, {
-        provider: 'claude',         // 'claude' | 'openai' | 'gemini'
-        baselineDir: 'cypress/visual-baselines', // optional, this is the default
+      visualEvalPlugin(on, config, {
+        provider: 'claude',          // 'claude' | 'openai' | 'gemini'
+        baselineDir: 'cypress/baseline', // optional, this is the default
       })
     }
   }
@@ -63,24 +64,19 @@ For local development, add to `cypress.env.json` (this file should be in `.gitig
 }
 ```
 
-For CI, set it as an environment variable in your pipeline:
+For CI, set it as an environment variable in your pipeline.
 
-```bash
-# GitHub Actions, GitLab CI, etc.
-AI_VISUAL_API_KEY=your-api-key-here
-```
-
-The plugin resolves credentials in this order: environment variable → `cypress.env.json` → throws a clear error.
+The plugin resolves credentials in this order: `AI_VISUAL_API_KEY` env var → provider-specific env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`) → `cypress.env.json` → throws a clear error.
 
 ---
 
 ## Usage
 
 ```js
-it('renders the homepage correctly', () => {
-  cy.visit('/')
-  cy.get('[data-cy=hero]').should('be.visible')
-  cy.visualTest('homepage-hero')
+it('renders the checkout page correctly', () => {
+  cy.visit('/checkout')
+  cy.get('[data-cy=summary]').should('be.visible')
+  cy.visualTest('checkout-page')
 })
 ```
 
@@ -93,30 +89,44 @@ cy.visualTest('hero-clip', { clip: { x: 0, y: 0, width: 400, height: 300 } })
 
 ---
 
-## Updating baselines
+## Recommended scripts
 
-When you make intentional UI changes, run with the update flag to regenerate baselines:
+Add these to your consumer project's `package.json`:
 
-```bash
-CYPRESS_UPDATE_BASELINE=true cypress run
+```json
+"scripts": {
+  "cy": "cypress run",
+  "cy:open": "cypress open",
+  "cy:generate-base": "cypress run -x GENERATE_BASELINE=TRUE",
+  "cy:no-ai": "cypress run -x VISUAL_EVAL_AI_DISABLED=TRUE"
+}
 ```
 
-Baselines are stored as PNG files in `baselineDir` and should be committed to git so the whole team shares the same reference images.
+- `cy:generate-base` — run once after intentional UI changes to update baseline images
+- `cy:no-ai` — run with pixel diff only, AI fallback disabled. Useful for fast local checks or when you want deterministic results only.
 
 ---
 
 ## Providers
 
-| Provider | Model | Environment variable |
-|----------|-------|----------------------|
-| `claude` | claude-sonnet-4 | `AI_VISUAL_API_KEY` or `ANTHROPIC_API_KEY` |
+| Provider | Default model | Env variable |
+|----------|--------------|--------------|
+| `claude` | claude-sonnet-4-20250514 | `AI_VISUAL_API_KEY` or `ANTHROPIC_API_KEY` |
 | `openai` | gpt-4o | `AI_VISUAL_API_KEY` or `OPENAI_API_KEY` |
 | `gemini` | gemini-1.5-pro | `AI_VISUAL_API_KEY` or `GEMINI_API_KEY` |
 
-You can override the model per-provider:
+Each provider SDK is an optional peer dependency — install only what you need:
+
+```bash
+npm install -D @anthropic-ai/sdk      # claude
+npm install -D openai                 # openai
+npm install -D @google/genai          # gemini
+```
+
+You can override the model:
 
 ```js
-setupVisualEval(on, config, {
+visualEvalPlugin(on, config, {
   provider: 'claude',
   model: 'claude-opus-4-20250514',
 })
@@ -124,14 +134,14 @@ setupVisualEval(on, config, {
 
 ### Custom provider
 
-You can bring your own provider by passing a class that implements the `compare` method:
+Pass your own class instance instead of a provider name:
 
 ```js
-import { setupVisualEval } from 'cypress-visual-eval'
+import { visualEvalPlugin } from 'cypress-visual-eval'
 import { MyCustomProvider } from './myCustomProvider'
 
-setupVisualEval(on, config, {
-  provider: MyCustomProvider,
+visualEvalPlugin(on, config, {
+  provider: new MyCustomProvider(),
 })
 ```
 
@@ -140,9 +150,9 @@ The interface your class must implement:
 ```ts
 interface VisualEvalProvider {
   compare(
-    baseline: string,    // base64 PNG
-    screenshot: string,  // base64 PNG
-    diff: string,        // base64 PNG
+    baselineBase64: string,
+    screenshotBase64: string,
+    diffBase64?: string,  // only present when pixel diff > 0
   ): Promise<{ pass: boolean; reason: string }>
 }
 ```
@@ -153,16 +163,21 @@ interface VisualEvalProvider {
 
 - Never commit `cypress.env.json` — add it to `.gitignore`
 - Never put API keys in `cypress.config.js`
-- In CI, always use secrets/environment variables, never hardcoded values
+- In CI, always use secrets/environment variables
 
-A `.gitignore` snippet to add to your project:
+Suggested `.gitignore` additions:
 
 ```
 cypress.env.json
-cypress/visual-baselines/*.png   # optional — see below
 ```
 
-Whether to commit baseline images is a team decision. Committing them means everyone shares the same reference and CI has access without extra setup. Not committing them means baselines are local only and each environment generates its own.
+Baseline images (`cypress/baseline/`) should generally be committed to git — this ensures the whole team and CI share the same reference images. If you choose not to commit them, every environment will need to generate its own baselines before running tests.
+
+---
+
+## Credits
+
+Pixel comparison is powered by [pixelmatch](https://github.com/mapbox/pixelmatch) by Mapbox. PNG image loading and writing is handled by [pngjs](https://github.com/pngjs/pngjs).
 
 ---
 
@@ -172,5 +187,5 @@ Whether to commit baseline images is a team decision. Committing them means ever
 git clone https://github.com/alex-berk/cypress-visual-eval.git
 cd cypress-visual-eval
 npm install
-npm run dev    # watch mode — rebuilds on save
+npm run build:watch
 ```

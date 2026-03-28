@@ -43,11 +43,23 @@
   "homepage": "https://github.com/alex-berk/cypress-visual-eval#readme",
   "license": "MIT",
   "peerDependencies": {
-    "cypress": ">=12"
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@google/genai": ">=0.1.0",
+    "cypress": ">=12",
+    "openai": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "cypress": {
       "optional": false
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
     }
   },
   "dependencies": {
