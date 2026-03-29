@@ -7,7 +7,7 @@ export class GeminiProvider implements VisualEvalProvider {
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey
-    this.model = model ?? 'gemini-1.5-pro'
+    this.model = model ?? 'gemini-2.0-flash'
   }
 
   async compare(
@@ -15,18 +15,14 @@ export class GeminiProvider implements VisualEvalProvider {
     screenshotBase64: string,
     diffBase64?: string,
   ): Promise<CompareResult> {
-    let GoogleGenerativeAI: any
+    let GoogleGenAI: any
     try {
-      GoogleGenerativeAI = (await import('@google/generative-ai')).GoogleGenerativeAI
+      GoogleGenAI = (await import('@google/genai')).GoogleGenAI
     } catch {
-      throw new Error('[cypress-visual-eval] @google/generative-ai is not installed. Run: npm install -D @google/generative-ai')
+      throw new Error('[cypress-visual-eval] @google/genai is not installed. Run: npm install -D @google/genai')
     }
 
-    const client = new GoogleGenerativeAI(this.apiKey)
-    const model = client.getGenerativeModel({
-      model: this.model,
-      systemInstruction: SYSTEM_PROMPT,
-    })
+    const client = new GoogleGenAI({ apiKey: this.apiKey })
 
     const parts: any[] = [
       { text: 'Baseline screenshot:' },
@@ -42,7 +38,11 @@ export class GeminiProvider implements VisualEvalProvider {
       )
     }
 
-    const response = await model.generateContent(parts)
-    return parseResponse(response.response.text())
+    const response = await client.models.generateContent({
+      model: this.model,
+      contents: [{ parts }],
+      config: { systemInstruction: SYSTEM_PROMPT },
+    })
+    return parseResponse(response.text ?? '')
   }
 }
