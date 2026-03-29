@@ -7,7 +7,7 @@ export class ClaudeProvider implements VisualEvalProvider {
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey
-    this.model = model ?? 'claude-sonnet-4-20250514'
+    this.model = model ?? 'claude-sonnet-4-6'
   }
 
   async compare(
