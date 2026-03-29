@@ -1,0 +1,38 @@
+name: Publish to npm
+
+on:
+  push:
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/build-and-test.yml
+
+  publish:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Check version is not already published
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view cypress-visual-eval@$VERSION version 2>/dev/null | grep -q "$VERSION"; then
+            echo "::error::Version $VERSION is already published on npm. Add a v-patch, v-minor, or v-major label to the PR to bump the version before merging."
+            exit 1
+          fi
+          echo "Publishing version $VERSION"
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
