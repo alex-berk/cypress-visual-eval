@@ -3,9 +3,8 @@
   "version": "0.0.3",
   "description": "AI-powered visual regression evaluation for Cypress",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "licens": "MIT",
   "scripts": {
     "build": "tsup",
     "build:watch": "nodemon --watch src --ext ts --exec \"tsup\""
