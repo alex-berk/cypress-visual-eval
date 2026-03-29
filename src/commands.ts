@@ -1,6 +1,8 @@
 /// <reference types="cypress" />
+import type { VisualTestOptions } from "./types"
 
-Cypress.Commands.add('visualTest', (name: string, screenshotOptions?: Partial<Cypress.ScreenshotOptions>) => {
+Cypress.Commands.add('visualTest', (name: string, options?: Partial<VisualTestOptions>) => {
+  const { pixelDiffThreshold, ...screenshotOptions } = options ?? {}
   const spec = Cypress.spec.name
   const generateBaseline = Cypress.expose('GENERATE_BASELINE') === 'TRUE'
   const aiEnabled = Cypress.expose('VISUAL_EVAL_AI_DISABLED') !== 'TRUE'
