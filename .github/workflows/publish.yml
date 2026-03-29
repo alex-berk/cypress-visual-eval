@@ -1,38 +1,144 @@
 name: Publish to npm
 
 on:
-  push:
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: publish-main
+  cancel-in-progress: false
 
 jobs:
+  release-metadata:
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      should-release: ${{ steps.release-metadata.outputs.should-release }}
+      bump-type: ${{ steps.release-metadata.outputs.bump-type }}
+    steps:
+      - name: Determine whether this merge should release
+        id: release-metadata
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseLabels = ['v-patch', 'v-minor', 'v-major'];
+            const labelToBump = {
+              'v-patch': 'patch',
+              'v-minor': 'minor',
+              'v-major': 'major',
+            };
+            const releaseRelevant = [
+              'src/',
+              'package.json',
+              'package-lock.json',
+              'tsconfig',
+              'tsup.config.',
+            ];
+
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const changedFiles = files.map((file) => file.filename);
+            const hasReleaseRelevantChanges = changedFiles.some((file) =>
+              releaseRelevant.some((pattern) => file.startsWith(pattern))
+            );
+
+            if (!hasReleaseRelevantChanges) {
+              core.notice('Skipping release because this PR does not touch release-relevant files.');
+              core.setOutput('should-release', 'false');
+              core.setOutput('bump-type', '');
+              return;
+            }
+
+            const labels = (pr.labels || []).map((label) => label.name);
+            const matchingLabels = labels.filter((label) => releaseLabels.includes(label));
+
+            if (matchingLabels.length !== 1) {
+              core.notice('Skipping release because this PR does not have exactly one release label.');
+              core.setOutput('should-release', 'false');
+              core.setOutput('bump-type', '');
+              return;
+            }
+
+            const bumpType = labelToBump[matchingLabels[0]];
+            core.notice(`Release enabled with bump type: ${bumpType}`);
+            core.setOutput('should-release', 'true');
+            core.setOutput('bump-type', bumpType);
+
   build-and-test:
+    needs: release-metadata
+    if: needs.release-metadata.outputs.should-release == 'true'
     uses: ./.github/workflows/build-and-test.yml
 
   publish:
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    needs: [release-metadata, build-and-test]
+    if: needs.release-metadata.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     permissions:
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --ff-only origin main
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
+
       - run: npm ci
-      - run: npm run build
+
+      - name: Bump version
+        run: npm version ${{ needs.release-metadata.outputs.bump-type }} --no-git-tag-version
 
       - name: Check version is not already published
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if npm view cypress-visual-eval@$VERSION version 2>/dev/null | grep -q "$VERSION"; then
-            echo "::error::Version $VERSION is already published on npm. Add a v-patch, v-minor, or v-major label to the PR to bump the version before merging."
+            echo "::error::Version $VERSION is already published on npm."
             exit 1
           fi
           echo "Publishing version $VERSION"
+
+      - name: Commit version bump
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: release $VERSION"
+          git tag "v$VERSION"
+          git push origin main
+          git push origin "v$VERSION"
 
       - name: Publish
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes "npm release v$VERSION"
