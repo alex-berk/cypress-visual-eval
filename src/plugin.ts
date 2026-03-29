@@ -8,6 +8,7 @@ import { CompareResult } from './providers/types';
 export type VisualEvalOptions = ProviderConfig & {
   baselineDir?: string,
   screenshotsDir?: string,
+  prompt?: string,
   debug?: boolean
 }
 
@@ -31,7 +32,7 @@ export function visualEvalPlugin(
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
       const { pixelCount, baselineBase64, evalBase64, diffBase64 } =
         imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, threshold)
-      if (aiEnabled && pixelCount >= 0) {
+      if (aiEnabled && pixelCount > 0) {
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
         }
