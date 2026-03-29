@@ -28,11 +28,20 @@ export function visualEvalPlugin(
     visualEvalGenerateBase({ name, spec }: { name: string, spec: string }): string {
       return moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsBaseFolder)
     },
-    async visualEvalCompareScreenshots({ name, spec, aiEnabled, threshold = 0 }: { name: string, spec: string, aiEnabled: boolean, threshold?: number }): Promise<CompareResult> {
+    async visualEvalCompareScreenshots({ name, spec, aiEnabled, pixelDiffThreshold = 0 }: { name: string, spec: string, aiEnabled: boolean, pixelDiffThreshold?: number }): Promise<CompareResult> {
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
       const { pixelCount, baselineBase64, evalBase64, diffBase64 } =
         imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder)
-      if (aiEnabled && pixelCount > threshold) {
+      if (options.debug) {
+        console.log(`[cypress-visual-eval] Detected diff: ${pixelCount}, threshold: ${pixelDiffThreshold}`)
+      }
+      if (pixelCount === 0) {
+        return { pass: true, reason: 'Images are identical' }
+      }
+      if (pixelCount <= pixelDiffThreshold) {
+        return { pass: true, reason: `Detected diff: ${pixelCount} <= threshold ${pixelDiffThreshold}` }
+      }
+      if (aiEnabled) {
         const provider = await providerPromise
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
@@ -42,10 +51,6 @@ export function visualEvalPlugin(
           console.log(`[cypress-visual-eval] "${name}" — pass: ${result.pass}, reason: ${result.reason}`)
         }
         return result
-      } else {
-        const pass = pixelCount === threshold
-        const reason = pass ? 'Images are identical' : 'Differences detected, AI fallback disabled'
-        return { pass, reason }
       }
     }
   })
