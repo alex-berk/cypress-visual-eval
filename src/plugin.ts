@@ -52,6 +52,7 @@ export function visualEvalPlugin(
         }
         return result
       }
+      return { pass: false, reason: `Diff of ${pixelCount} pixels exceeds threshold of ${pixelDiffThreshold}, AI fallback disabled` }
     }
   })
 }
