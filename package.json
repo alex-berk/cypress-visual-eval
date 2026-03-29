@@ -7,7 +7,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsup",
-    "build:watch": "nodemon --watch src --ext ts --exec \"tsup\""
+    "build:watch": "nodemon --watch src --ext ts --exec \"tsup\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "files": [
     "dist"
@@ -72,6 +74,7 @@
     "cypress": "^15.13.0",
     "nodemon": "^3.1.14",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^2.1.9"
   }
 }

@@ -8,7 +8,7 @@ export interface ProviderConfig {
   apiKey?: string
 }
 
-export function createProvider(config: ProviderConfig): VisualEvalProvider | null {
+export async function createProvider(config: ProviderConfig): Promise<VisualEvalProvider | null> {
   if (!config.provider) return null
   if (typeof config.provider !== 'string') {
     return config.provider
@@ -18,15 +18,15 @@ export function createProvider(config: ProviderConfig): VisualEvalProvider | nul
 
   switch (config.provider) {
     case 'claude': {
-      const { ClaudeProvider } = require('./claude')
+      const { ClaudeProvider } = await import('./claude')
       return new ClaudeProvider(apiKey, config.model)
     }
     case 'openai': {
-      const { OpenAIProvider } = require('./openai')
+      const { OpenAIProvider } = await import('./openai')
       return new OpenAIProvider(apiKey, config.model)
     }
     case 'gemini': {
-      const { GeminiProvider } = require('./gemini')
+      const { GeminiProvider } = await import('./gemini')
       return new GeminiProvider(apiKey, config.model)
     }
     default:

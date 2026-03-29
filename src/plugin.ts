@@ -22,7 +22,7 @@ export function visualEvalPlugin(
   const screenshotsEvalFolder = options.screenshotsDir ?? path.join(cypressScreenshotsFolder, 'visualEval')
 
   options.apiKey = options.apiKey || config.env?.AI_VISUAL_API_KEY
-  const provider = createProvider(options)
+  const providerPromise = createProvider(options)
 
   on('task', {
     visualEvalGenerateBase({ name, spec }: { name: string, spec: string }): string {
@@ -33,6 +33,7 @@ export function visualEvalPlugin(
       const { pixelCount, baselineBase64, evalBase64, diffBase64 } =
         imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, threshold)
       if (aiEnabled && pixelCount > 0) {
+        const provider = await providerPromise
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
         }
