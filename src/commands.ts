@@ -2,6 +2,9 @@
 import type { VisualTestOptions } from "./types"
 
 Cypress.Commands.add('visualTest', (name: string, options?: Partial<VisualTestOptions>) => {
+  if (Cypress.browser.isHeaded) {
+    return
+  }
   const { pixelDiffThreshold, ...screenshotOptions } = options ?? {}
   const spec = Cypress.spec.name
   const generateBaseline = Cypress.expose('GENERATE_BASELINE') === 'TRUE'
