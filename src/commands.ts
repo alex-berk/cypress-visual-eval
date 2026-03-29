@@ -13,9 +13,10 @@ Cypress.Commands.add('visualTest', (name: string, options?: Partial<VisualTestOp
   } else {
     const screenshotPath = `ve-${name}`
     cy.screenshot(screenshotPath, { overwrite: true, ...screenshotOptions })
-    cy.task<{ pass: boolean; reason: string }>('visualEvalCompareScreenshots', { name, spec, aiEnabled }).then(({ pass, reason }) => {
-      expect(pass, reason + '\n').to.be.true
-    })
+    cy.task<{ pass: boolean; reason: string }>('visualEvalCompareScreenshots', { name, spec, aiEnabled, pixelDiffThreshold })
+      .then(({ pass, reason }) => {
+        expect(pass, reason + '\n').to.be.true
+      })
   }
 })
 
