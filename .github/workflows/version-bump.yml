@@ -9,29 +9,66 @@ jobs:
   validate-release-label:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
-      - name: Validate release label
-        run: |
-          count=0
-          bump=""
+      - name: Check release label guidance
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseLabels = ['v-patch', 'v-minor', 'v-major'];
+            const releaseRelevant = [
+              'src/',
+              'package.json',
+              'package-lock.json',
+              'tsconfig',
+              'tsup.config.',
+            ];
 
-          for label in ${{ join(github.event.pull_request.labels.*.name, ' ') }}; do
-            case "$label" in
-              v-patch|v-minor|v-major)
-                count=$((count + 1))
-                bump="$label"
-                ;;
-            esac
-          done
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-          if [ "$count" -eq 0 ]; then
-            echo "::error::Add exactly one release label to this PR: v-patch, v-minor, or v-major."
-            exit 1
-          fi
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
 
-          if [ "$count" -gt 1 ]; then
-            echo "::error::This PR has multiple release labels. Keep only one of v-patch, v-minor, or v-major."
-            exit 1
-          fi
+            const changedFiles = files.map((file) => file.filename);
+            const hasReleaseRelevantChanges = changedFiles.some((file) =>
+              releaseRelevant.some((pattern) => file.startsWith(pattern))
+            );
 
-          echo "Release label is $bump"
+            const labels = (pr.labels || []).map((label) => label.name);
+            const matchingLabels = labels.filter((label) => releaseLabels.includes(label));
+
+            core.notice(`Release-relevant changes: ${hasReleaseRelevantChanges ? 'yes' : 'no'}`);
+
+            if (!hasReleaseRelevantChanges) {
+              if (matchingLabels.length > 0) {
+                core.warning(
+                  `This PR has a release label (${matchingLabels.join(', ')}) but no release-relevant files changed. The post-merge release workflow will skip publishing.`
+                );
+              } else {
+                core.notice('No release label needed because this PR does not touch release-relevant files.');
+              }
+              return;
+            }
+
+            if (matchingLabels.length === 0) {
+              core.warning(
+                'This PR changes release-relevant files but has no release label. Add exactly one of v-patch, v-minor, or v-major if you want a release after merge.'
+              );
+              return;
+            }
+
+            if (matchingLabels.length > 1) {
+              core.warning(
+                `This PR has multiple release labels (${matchingLabels.join(', ')}). Keep only one if you want a release after merge.`
+              );
+              return;
+            }
+
+            core.notice(`Release label is ${matchingLabels[0]}.`);

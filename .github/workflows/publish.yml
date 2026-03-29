@@ -14,44 +14,77 @@ jobs:
       github.event.pull_request.merged == true &&
       github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
-      bump-type: ${{ steps.bump.outputs.type }}
+      should-release: ${{ steps.release-metadata.outputs.should-release }}
+      bump-type: ${{ steps.release-metadata.outputs.bump-type }}
     steps:
-      - name: Determine bump type
-        id: bump
-        run: |
-          count=0
+      - name: Determine whether this merge should release
+        id: release-metadata
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseLabels = ['v-patch', 'v-minor', 'v-major'];
+            const labelToBump = {
+              'v-patch': 'patch',
+              'v-minor': 'minor',
+              'v-major': 'major',
+            };
+            const releaseRelevant = [
+              'src/',
+              'package.json',
+              'package-lock.json',
+              'tsconfig',
+              'tsup.config.',
+            ];
 
-          for label in ${{ join(github.event.pull_request.labels.*.name, ' ') }}; do
-            case "$label" in
-              v-patch)
-                count=$((count + 1))
-                bump="patch"
-                ;;
-              v-minor)
-                count=$((count + 1))
-                bump="minor"
-                ;;
-              v-major)
-                count=$((count + 1))
-                bump="major"
-                ;;
-            esac
-          done
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-          if [ "$count" -ne 1 ]; then
-            echo "::error::Merged PR must have exactly one release label: v-patch, v-minor, or v-major."
-            exit 1
-          fi
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
 
-          echo "type=$bump" >> "$GITHUB_OUTPUT"
+            const changedFiles = files.map((file) => file.filename);
+            const hasReleaseRelevantChanges = changedFiles.some((file) =>
+              releaseRelevant.some((pattern) => file.startsWith(pattern))
+            );
+
+            if (!hasReleaseRelevantChanges) {
+              core.notice('Skipping release because this PR does not touch release-relevant files.');
+              core.setOutput('should-release', 'false');
+              core.setOutput('bump-type', '');
+              return;
+            }
+
+            const labels = (pr.labels || []).map((label) => label.name);
+            const matchingLabels = labels.filter((label) => releaseLabels.includes(label));
+
+            if (matchingLabels.length !== 1) {
+              core.notice('Skipping release because this PR does not have exactly one release label.');
+              core.setOutput('should-release', 'false');
+              core.setOutput('bump-type', '');
+              return;
+            }
+
+            const bumpType = labelToBump[matchingLabels[0]];
+            core.notice(`Release enabled with bump type: ${bumpType}`);
+            core.setOutput('should-release', 'true');
+            core.setOutput('bump-type', bumpType);
 
   build-and-test:
     needs: release-metadata
+    if: needs.release-metadata.outputs.should-release == 'true'
     uses: ./.github/workflows/build-and-test.yml
 
   publish:
     needs: [release-metadata, build-and-test]
+    if: needs.release-metadata.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
