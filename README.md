@@ -111,9 +111,9 @@ Add these to your consumer project's `package.json`:
 
 | Provider | Default model | Env variable |
 |----------|--------------|--------------|
-| `claude` | claude-sonnet-4-20250514 | `AI_VISUAL_API_KEY` or `ANTHROPIC_API_KEY` |
+| `claude` | claude-sonnet-4-6 | `AI_VISUAL_API_KEY` or `ANTHROPIC_API_KEY` |
 | `openai` | gpt-4o | `AI_VISUAL_API_KEY` or `OPENAI_API_KEY` |
-| `gemini` | gemini-1.5-pro | `AI_VISUAL_API_KEY` or `GEMINI_API_KEY` |
+| `gemini` | gemini-2.0-flash | `AI_VISUAL_API_KEY` or `GEMINI_API_KEY` |
 
 Each provider SDK is an optional peer dependency — install only what you need:
 
