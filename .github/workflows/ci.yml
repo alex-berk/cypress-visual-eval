@@ -7,3 +7,10 @@ on:
 jobs:
   build-and-test:
     uses: ./.github/workflows/build-and-test.yml
+
+  ci-passed:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI passed
+        run: echo "All required CI checks passed."
