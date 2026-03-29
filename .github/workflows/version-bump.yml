@@ -1,45 +1,37 @@
-name: Bump version on PR label
+name: Release Label Check
 
 on:
   pull_request:
-    types: [labeled]
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
 
 jobs:
-  bump-version:
-    if: |
-      github.event.label.name == 'v-patch' ||
-      github.event.label.name == 'v-minor' ||
-      github.event.label.name == 'v-major'
+  validate-release-label:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Determine bump type
-        id: bump
+      - name: Validate release label
         run: |
-          case "${{ github.event.label.name }}" in
-            v-patch) echo "type=patch" >> $GITHUB_OUTPUT ;;
-            v-minor) echo "type=minor" >> $GITHUB_OUTPUT ;;
-            v-major) echo "type=major" >> $GITHUB_OUTPUT ;;
-          esac
+          count=0
+          bump=""
 
-      - name: Bump version in package.json
-        run: npm version ${{ steps.bump.outputs.type }} --no-git-tag-version
+          for label in ${{ join(github.event.pull_request.labels.*.name, ' ') }}; do
+            case "$label" in
+              v-patch|v-minor|v-major)
+                count=$((count + 1))
+                bump="$label"
+                ;;
+            esac
+          done
 
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          VERSION=$(node -p "require('./package.json').version")
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to $VERSION"
-          git push
+          if [ "$count" -eq 0 ]; then
+            echo "::error::Add exactly one release label to this PR: v-patch, v-minor, or v-major."
+            exit 1
+          fi
+
+          if [ "$count" -gt 1 ]; then
+            echo "::error::This PR has multiple release labels. Keep only one of v-patch, v-minor, or v-major."
+            exit 1
+          fi
+
+          echo "Release label is $bump"
