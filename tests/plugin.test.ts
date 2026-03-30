@@ -106,6 +106,69 @@ describe('visualEvalPlugin', () => {
     expect(compare).not.toHaveBeenCalled()
   })
 
+  it('returns early when images are identical', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>()
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/home.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 0,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({ provider: 'openai' })
+    const result = await tasks.visualEvalCompareScreenshots({
+      name: 'home',
+      spec: 'home.cy.ts',
+      aiEnabled: true,
+      pixelDiffThreshold: 0,
+    })
+
+    expect(result).toEqual({ pass: true, reason: 'Images are identical' })
+    expect(compare).not.toHaveBeenCalled()
+  })
+
+  it('returns early when the pixel diff is within the threshold', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>()
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/settings.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({ provider: 'openai' })
+    const result = await tasks.visualEvalCompareScreenshots({
+      name: 'settings',
+      spec: 'settings.cy.ts',
+      aiEnabled: true,
+      pixelDiffThreshold: 5,
+    })
+
+    expect(result).toEqual({
+      pass: true,
+      reason: 'Detected diff: 4 <= threshold 5',
+    })
+    expect(compare).not.toHaveBeenCalled()
+  })
+
+  it('passes config.env AI_VISUAL_API_KEY into provider creation when options.apiKey is missing', async () => {
+    createProvider.mockResolvedValue(null)
+
+    await setupPlugin(
+      { provider: 'claude' },
+      { env: { AI_VISUAL_API_KEY: 'env-key' } }
+    )
+
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'claude',
+      apiKey: 'env-key',
+    })
+  })
+
   it('creates the provider during startup and surfaces missing-key failure when AI compare runs', async () => {
     const noKeyError = new Error('[cypress-visual-eval] No API key found for provider "openai"')
     createProvider.mockRejectedValue(noKeyError)
