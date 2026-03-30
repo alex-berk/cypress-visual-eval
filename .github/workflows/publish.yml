@@ -3,26 +3,44 @@ name: Publish to npm
 on:
   pull_request_target:
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: Version bump to apply for the release PR
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      target_ref:
+        description: Branch to release from
+        required: false
+        default: main
+        type: string
 
 concurrency:
-  group: publish-main
+  group: release-main
   cancel-in-progress: false
 
 jobs:
   release-metadata:
     if: |
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
+      mode: ${{ steps.release-metadata.outputs.mode }}
       should-release: ${{ steps.release-metadata.outputs.should-release }}
       bump-type: ${{ steps.release-metadata.outputs.bump-type }}
     steps:
-      - name: Determine whether this merge should release
+      - name: Determine release mode
         id: release-metadata
         uses: actions/github-script@v7
+        env:
+          INPUT_BUMP_TYPE: ${{ inputs.bump_type }}
         with:
           script: |
             const releaseLabels = ['v-patch', 'v-minor', 'v-major'];
@@ -39,9 +57,26 @@ jobs:
               'tsup.config.',
             ];
 
+            if (context.eventName === 'workflow_dispatch') {
+              const bumpType = process.env.INPUT_BUMP_TYPE;
+              core.notice(`Manual release PR requested with bump type: ${bumpType}`);
+              core.setOutput('mode', 'prepare');
+              core.setOutput('should-release', 'true');
+              core.setOutput('bump-type', bumpType);
+              return;
+            }
+
             const pr = context.payload.pull_request;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+
+            if ((pr.head.ref || '').startsWith('release/')) {
+              core.notice(`Release PR merged from ${pr.head.ref}; publishing release.`);
+              core.setOutput('mode', 'publish');
+              core.setOutput('should-release', 'true');
+              core.setOutput('bump-type', '');
+              return;
+            }
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner,
@@ -57,6 +92,7 @@ jobs:
 
             if (!hasReleaseRelevantChanges) {
               core.notice('Skipping release because this PR does not touch release-relevant files.');
+              core.setOutput('mode', 'skip');
               core.setOutput('should-release', 'false');
               core.setOutput('bump-type', '');
               return;
@@ -67,6 +103,7 @@ jobs:
 
             if (matchingLabels.length !== 1) {
               core.notice('Skipping release because this PR does not have exactly one release label.');
+              core.setOutput('mode', 'skip');
               core.setOutput('should-release', 'false');
               core.setOutput('bump-type', '');
               return;
@@ -74,17 +111,113 @@ jobs:
 
             const bumpType = labelToBump[matchingLabels[0]];
             core.notice(`Release enabled with bump type: ${bumpType}`);
+            core.setOutput('mode', 'prepare');
             core.setOutput('should-release', 'true');
             core.setOutput('bump-type', bumpType);
 
+  prepare-release-pr:
+    needs: release-metadata
+    if: |
+      needs.release-metadata.outputs.should-release == 'true' &&
+      needs.release-metadata.outputs.mode == 'prepare'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || 'main' }}
+      BUMP_TYPE: ${{ needs.release-metadata.outputs.bump-type }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bump version on release branch
+        id: versioning
+        run: |
+          npm version "$BUMP_TYPE" --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          BRANCH="release/v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing release PR
+        id: existing-pr
+        uses: actions/github-script@v7
+        env:
+          RELEASE_BRANCH: ${{ steps.versioning.outputs.branch }}
+          BASE_REF: ${{ env.BASE_REF }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const head = `${owner}:${process.env.RELEASE_BRANCH}`;
+            const base = process.env.BASE_REF;
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head,
+              base,
+            });
+
+            if (pulls.length > 0) {
+              core.notice(`Release PR already exists: ${pulls[0].html_url}`);
+              core.setOutput('exists', 'true');
+              core.setOutput('url', pulls[0].html_url);
+              return;
+            }
+
+            core.setOutput('exists', 'false');
+
+      - name: Commit and push release branch
+        run: |
+          VERSION="${{ steps.versioning.outputs.version }}"
+          BRANCH="${{ steps.versioning.outputs.branch }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No release changes to commit."
+          else
+            git commit -m "chore: release $VERSION"
+          fi
+          git push origin "$BRANCH" --force-with-lease
+
+      - name: Open release PR
+        if: steps.existing-pr.outputs.exists != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_REF: ${{ env.BASE_REF }}
+        run: |
+          VERSION="${{ steps.versioning.outputs.version }}"
+          BRANCH="${{ steps.versioning.outputs.branch }}"
+          gh pr create \
+            --base "$BASE_REF" \
+            --head "$BRANCH" \
+            --title "chore: release v$VERSION" \
+            --body "Automated release PR for v$VERSION."
+
   build-and-test:
     needs: release-metadata
-    if: needs.release-metadata.outputs.should-release == 'true'
+    if: |
+      needs.release-metadata.outputs.should-release == 'true' &&
+      needs.release-metadata.outputs.mode == 'publish'
     uses: ./.github/workflows/build-and-test.yml
 
   publish:
     needs: [release-metadata, build-and-test]
-    if: needs.release-metadata.outputs.should-release == 'true'
+    if: |
+      needs.release-metadata.outputs.should-release == 'true' &&
+      needs.release-metadata.outputs.mode == 'publish'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,9 +239,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Bump version
-        run: npm version ${{ needs.release-metadata.outputs.bump-type }} --no-git-tag-version
-
       - name: Check version is not already published
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -118,15 +248,10 @@ jobs:
           fi
           echo "Publishing version $VERSION"
 
-      - name: Commit version bump
+      - name: Create release tag
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore: release $VERSION"
           git tag "v$VERSION"
-          git push origin main
           git push origin "v$VERSION"
 
       - name: Publish
