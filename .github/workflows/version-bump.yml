@@ -49,7 +49,7 @@ jobs:
             if (!hasReleaseRelevantChanges) {
               if (matchingLabels.length > 0) {
                 core.warning(
-                  `This PR has a release label (${matchingLabels.join(', ')}) but no release-relevant files changed. The post-merge release workflow will skip publishing.`
+                  `This PR has a release label (${matchingLabels.join(', ')}) but no release-relevant files changed. The post-merge release workflow will skip creating a release PR.`
                 );
               } else {
                 core.notice('No release label needed because this PR does not touch release-relevant files.');
@@ -59,7 +59,7 @@ jobs:
 
             if (matchingLabels.length === 0) {
               core.warning(
-                'This PR changes release-relevant files but has no release label. Add exactly one of v-patch, v-minor, or v-major if you want a release after merge.'
+                'This PR changes release-relevant files but has no release label. Add exactly one of v-patch, v-minor, or v-major if you want a release PR after merge.'
               );
               return;
             }
