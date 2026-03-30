@@ -118,4 +118,44 @@ describe('visualTest command', () => {
       pixelDiffThreshold: undefined,
     })
   })
+
+  it('uses baseline-generation mode when GENERATE_BASELINE is enabled', async () => {
+    const { visualTest, screenshot, task, cypressStub } = await loadCommand({
+      generateBaseline: 'TRUE',
+    })
+
+    visualTest('landing-page', { capture: 'runner' })
+
+    expect(cypressStub.expose).toHaveBeenCalledWith('GENERATE_BASELINE')
+    expect(screenshot).toHaveBeenCalledWith('landing-page', {
+      overwrite: true,
+      capture: 'runner',
+    })
+    expect(task).toHaveBeenCalledWith('visualEvalGenerateBase', {
+      name: 'landing-page',
+      spec: 'spec.cy.ts',
+    })
+  })
+
+  it('passes default compare-mode options through when no custom options are provided', async () => {
+    const { visualTest, screenshot, task } = await loadCommand()
+
+    visualTest('checkout')
+
+    expect(screenshot).toHaveBeenCalledWith('ve-checkout', { overwrite: true })
+    expect(task).toHaveBeenCalledWith('visualEvalCompareScreenshots', {
+      name: 'checkout',
+      spec: 'spec.cy.ts',
+      aiEnabled: true,
+      pixelDiffThreshold: undefined,
+    })
+  })
+
+  it('surfaces the compare failure reason through the command assertion', async () => {
+    const { visualTest } = await loadCommand({
+      taskResult: { pass: false, reason: 'Visual regression detected' },
+    })
+
+    expect(() => visualTest('profile')).toThrow('expected false to be true')
+  })
 })
