@@ -56,6 +56,12 @@ describe('createProvider', () => {
     await expect(
       createProvider({ provider: 'claude' })
     ).rejects.toThrow('No API key found')
+    await expect(
+      createProvider({ provider: 'claude' })
+    ).rejects.toThrow('ANTHROPIC_API_KEY')
+    await expect(
+      createProvider({ provider: 'claude' })
+    ).rejects.toThrow('cypress.env.json')
   })
 
   it('resolves API key from config.apiKey first', async () => {
