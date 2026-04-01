@@ -74,21 +74,39 @@ describe('createProvider', () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'anthropic-key')
     const provider = await createProvider({ provider: 'claude' })
     expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('claude-sonnet-4-6')
+  })
+
+  it('resolves API key from OPENAI_API_KEY env var', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'openai-key')
+    const provider = await createProvider({ provider: 'openai' })
+    expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('gpt-4o')
+  })
+
+  it('resolves API key from GEMINI_API_KEY env var', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'gemini-key')
+    const provider = await createProvider({ provider: 'gemini' })
+    expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('gemini-2.0-flash')
   })
 
   it('creates a provider for "claude"', async () => {
     const provider = await createProvider({ provider: 'claude', apiKey: 'key' })
     expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('claude-sonnet-4-6')
   })
 
   it('creates a provider for "openai"', async () => {
     const provider = await createProvider({ provider: 'openai', apiKey: 'key' })
     expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('gpt-4o')
   })
 
   it('creates a provider for "gemini"', async () => {
     const provider = await createProvider({ provider: 'gemini', apiKey: 'key' })
     expect(provider).toBeDefined()
+    expect((provider as any).model).toBe('gemini-2.0-flash')
   })
 
   it('passes model through to the provider', async () => {
