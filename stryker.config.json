@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "checkers": [
+    "typescript"
+  ],
+  "coverageAnalysis": "perTest",
+  "reporters": [
+    "clear-text",
+    "progress",
+    "html",
+    "json"
+  ],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "mutate": [
+    "src/commands.ts",
+    "src/plugin.ts",
+    "src/tasks/**/*.ts",
+    "src/providers/factory.ts",
+    "src/providers/prompt.ts",
+    "!src/index.ts",
+    "!src/providers/claude.ts",
+    "!src/providers/gemini.ts",
+    "!src/providers/openai.ts",
+    "!src/providers/types.ts",
+    "!src/types.d.ts"
+  ],
+  "thresholds": {
+    "high": 80,
+    "low": 70,
+    "break": null
+  }
+}

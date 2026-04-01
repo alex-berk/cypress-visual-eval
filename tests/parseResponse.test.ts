@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseResponse } from '../src/providers/prompt'
+import { parseResponse, SYSTEM_PROMPT } from '../src/providers/prompt'
 
 describe('parseResponse', () => {
   it('parses valid JSON with pass: true', () => {
@@ -62,5 +62,23 @@ describe('parseResponse', () => {
     const result = parseResponse('{"pass": true}')
     expect(result.pass).toBe(false)
     expect(result.reason).toContain('Could not parse AI response')
+  })
+})
+
+describe('SYSTEM_PROMPT', () => {
+  it('is defined and non-empty', () => {
+    expect(SYSTEM_PROMPT).toBeTruthy()
+    expect(SYSTEM_PROMPT.trim().length).toBeGreaterThan(0)
+  })
+
+  it('instructs the model to return JSON only', () => {
+    expect(SYSTEM_PROMPT).toContain('Return JSON only')
+    expect(SYSTEM_PROMPT).toContain('{ "pass": boolean, "reason": string }')
+  })
+
+  it('describes the three input images', () => {
+    expect(SYSTEM_PROMPT).toContain('BASELINE screenshot')
+    expect(SYSTEM_PROMPT).toContain('COMPARE screenshot')
+    expect(SYSTEM_PROMPT).toContain('DIFF image')
   })
 })
