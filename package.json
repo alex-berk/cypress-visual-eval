@@ -9,7 +9,9 @@
     "build": "tsup",
     "build:watch": "nodemon --watch src --ext ts --exec \"tsup\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:mutation": "stryker run",
+    "test:mutation:dry-run": "stryker run --dryRunOnly"
   },
   "files": [
     "dist"
@@ -68,6 +70,9 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/typescript-checker": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
     "@types/node": "^25.5.0",
     "@types/pngjs": "^6.0.5",
     "cypress": "^15.13.0",
