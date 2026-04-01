@@ -190,3 +190,15 @@ cd cypress-visual-eval
 npm install
 npm run build:watch
 ```
+
+Mutation testing is configured with Stryker and the Vitest runner:
+
+```bash
+npm run test:coverage
+npm run test:mutation:dry-run
+npm run test:mutation
+```
+
+Vitest coverage reports are written to `coverage/`.
+Stryker mutation reports are written to `reports/mutation/`.
+
