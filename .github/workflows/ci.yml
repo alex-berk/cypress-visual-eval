@@ -8,8 +8,87 @@ jobs:
   build-and-test:
     uses: ./.github/workflows/build-and-test.yml
 
+  demo-integration:
+    name: demo-integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      AI_VISUAL_API_KEY: ${{ secrets.AI_VISUAL_API_KEY }}
+    steps:
+      - name: Checkout plugin repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install plugin dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Pack plugin
+        run: npm pack
+
+      - name: Checkout demo repo
+        uses: actions/checkout@v4
+        with:
+          repository: alex-berk/vite-tests-demo
+          path: vite-tests-demo
+
+      - name: Install demo dependencies
+        working-directory: vite-tests-demo
+        run: npm ci
+
+      - name: Install packed plugin into demo repo
+        working-directory: vite-tests-demo
+        run: npm install --no-save ../cypress-visual-eval-*.tgz
+
+      - name: Start demo app
+        working-directory: vite-tests-demo
+        run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
+
+      - name: Wait for demo app
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
+              curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat /tmp/vite-tests-demo.log
+          exit 1
+
+      - name: Run visual smoke test
+        working-directory: vite-tests-demo
+        run: npx cypress run --e2e --spec cypress/e2e/visualEval.smoke.cy.ts --env VISUAL_EVAL_ROUTE=shift
+
+      - name: Upload demo logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-server-log
+          path: /tmp/vite-tests-demo.log
+          if-no-files-found: ignore
+
+      - name: Upload Cypress artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-cypress-artifacts
+          path: |
+            vite-tests-demo/cypress/screenshots
+            vite-tests-demo/cypress/baseline
+          if-no-files-found: ignore
+
   ci-passed:
-    needs: build-and-test
+    needs: [build-and-test, demo-integration]
     runs-on: ubuntu-latest
     steps:
       - name: CI passed
