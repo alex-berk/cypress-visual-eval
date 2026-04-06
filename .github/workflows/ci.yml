@@ -10,6 +10,7 @@ jobs:
 
   demo-integration:
     name: demo-integration
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -88,8 +89,23 @@ jobs:
           if-no-files-found: ignore
 
   ci-passed:
+    if: always()
     needs: [build-and-test, demo-integration]
     runs-on: ubuntu-latest
     steps:
-      - name: CI passed
-        run: echo "All required CI checks passed."
+      - name: Verify required jobs
+        run: |
+          echo "build-and-test result: ${{ needs.build-and-test.result }}"
+          echo "demo-integration result: ${{ needs.demo-integration.result }}"
+
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "build-and-test did not succeed"
+            exit 1
+          fi
+
+          if [ "${{ needs.demo-integration.result }}" != "success" ] && [ "${{ needs.demo-integration.result }}" != "skipped" ]; then
+            echo "demo-integration did not succeed"
+            exit 1
+          fi
+
+          echo "All required CI checks passed."
