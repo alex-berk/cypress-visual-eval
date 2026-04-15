@@ -38,7 +38,7 @@ jobs:
       - name: Checkout demo repo
         uses: actions/checkout@v4
         with:
-          repository: alex-berk/vite-tests-demo
+          repository: alex-berk/testing-demo-vue-dashboard
           path: vite-tests-demo
 
       - name: Install demo dependencies
