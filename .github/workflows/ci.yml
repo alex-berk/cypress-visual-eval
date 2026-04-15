@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      AI_VISUAL_API_KEY: ${{ secrets.AI_VISUAL_API_KEY }}
     steps:
       - name: Checkout plugin repo
         uses: actions/checkout@v4
