@@ -1,14 +1,16 @@
 /// <reference types="cypress" />
+import fs from 'fs'
 import path from 'path'
 import { moveScreenshot } from "./tasks/moveScreenshot";
 import { imgDiff } from "./tasks/imgDiff";
 import { createProvider, ProviderConfig } from './providers/factory';
+import { buildSystemPrompt } from './providers/prompt';
 import { CompareResult } from './providers/types';
 
 export type VisualEvalOptions = ProviderConfig & {
   baselineDir?: string,
   screenshotsDir?: string,
-  prompt?: string,
+  promptPath?: string,
   debug?: boolean
 }
 
@@ -20,9 +22,16 @@ export function visualEvalPlugin(
   const cypressScreenshotsFolder = config.screenshotsFolder as string
   const screenshotsBaseFolder = options.baselineDir ?? path.join('cypress', 'baseline')
   const screenshotsEvalFolder = options.screenshotsDir ?? path.join(cypressScreenshotsFolder, 'visualEval')
+  const projectRoot = config.projectRoot || process.cwd()
+  const customPrompt = options.promptPath ? readPromptFile(options.promptPath, projectRoot) : undefined
+  const apiKey = options.apiKey || config.env?.AI_VISUAL_API_KEY
 
-  options.apiKey = options.apiKey || config.env?.AI_VISUAL_API_KEY
-  const providerPromise = createProvider(options)
+  const providerPromise = createProvider({
+    provider: options.provider,
+    model: options.model,
+    apiKey,
+    systemPrompt: buildSystemPrompt(customPrompt),
+  })
 
   on('task', {
     visualEvalGenerateBase({ name, spec }: { name: string, spec: string }): string {
@@ -55,4 +64,22 @@ export function visualEvalPlugin(
       return { pass: false, reason: `Diff of ${pixelCount} pixels exceeds threshold of ${pixelDiffThreshold}, AI fallback disabled` }
     }
   })
+}
+
+function readPromptFile(promptPath: string, projectRoot: string): string {
+  const resolvedPath = path.isAbsolute(promptPath) ? promptPath : path.resolve(projectRoot, promptPath)
+  const extension = path.extname(resolvedPath).toLowerCase()
+
+  if (extension !== '.md' && extension !== '.txt') {
+    throw new Error(
+      `[cypress-visual-eval] Unsupported prompt file "${promptPath}". Only .md and .txt files are supported.`
+    )
+  }
+
+  try {
+    return fs.readFileSync(resolvedPath, 'utf8')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`[cypress-visual-eval] Failed to read prompt file "${promptPath}": ${message}`)
+  }
 }
