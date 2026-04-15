@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 env:
-  AI_VISUAL_API_KEY: ${{ secrets.AI_VISUAL_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
   build-and-test:
