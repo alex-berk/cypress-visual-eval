@@ -4,13 +4,109 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
 jobs:
   build-and-test:
     uses: ./.github/workflows/build-and-test.yml
 
+  demo-smoke:
+    name: demo-smoke
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout plugin repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install plugin dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Pack plugin
+        run: npm pack
+
+      - name: Checkout demo repo
+        uses: actions/checkout@v4
+        with:
+          repository: alex-berk/testing-demo-vue-dashboard
+          path: vite-tests-demo
+
+      - name: Install demo dependencies
+        working-directory: vite-tests-demo
+        run: npm ci
+
+      - name: Install packed plugin into demo repo
+        working-directory: vite-tests-demo
+        run: npm install --no-save ../cypress-visual-eval-*.tgz
+
+      - name: Start demo app
+        working-directory: vite-tests-demo
+        run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
+
+      - name: Wait for demo app
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
+              curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat /tmp/vite-tests-demo.log
+          exit 1
+
+      - name: Run visual smoke suite
+        working-directory: vite-tests-demo
+        run: npm run test:visual:smoke
+
+      - name: Upload demo logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-server-log-smoke
+          path: /tmp/vite-tests-demo.log
+          if-no-files-found: ignore
+
+      - name: Upload Cypress artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-cypress-artifacts-smoke
+          path: |
+            vite-tests-demo/cypress/screenshots
+            vite-tests-demo/cypress/baseline
+          if-no-files-found: ignore
+
   ci-passed:
-    needs: build-and-test
+    if: always()
+    needs: [build-and-test, demo-smoke]
     runs-on: ubuntu-latest
     steps:
-      - name: CI passed
-        run: echo "All required CI checks passed."
+      - name: Verify required jobs
+        run: |
+          echo "build-and-test result: ${{ needs.build-and-test.result }}"
+          echo "demo-smoke result: ${{ needs.demo-smoke.result }}"
+
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "build-and-test did not succeed"
+            exit 1
+          fi
+
+          if [ "${{ needs.demo-smoke.result }}" != "success" ] && [ "${{ needs.demo-smoke.result }}" != "skipped" ]; then
+            echo "demo-smoke did not succeed"
+            exit 1
+          fi
+
+          echo "All required CI checks passed."

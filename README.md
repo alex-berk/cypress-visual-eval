@@ -3,6 +3,8 @@
 
 AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline using pixel diffing, and — only when a difference is detected — uses a vision AI model to decide whether the difference is a real bug or acceptable variance.
 
+> This project is in active development. Expect iteration, API refinement, and workflow changes as the plugin matures.
+
 The AI acts as a fallback filter, not a primary gate. If images are identical, the test passes immediately with no API call. If a pixel diff is detected, the AI receives the baseline, the current screenshot, and the diff image, and returns a pass/fail decision with a human-readable reason. This means rendering noise and minor positional shifts no longer fail your build, while actual regressions — broken text, missing elements, wrong colors — still do.
 
 ---
@@ -23,6 +25,8 @@ The AI acts as a fallback filter, not a primary gate. If images are identical, t
 ```bash
 npm install -D cypress-visual-eval
 ```
+
+This plugin expects Cypress `15.10+`.
 
 ---
 
@@ -54,6 +58,8 @@ In `cypress/support/e2e.js`:
 ```js
 import 'cypress-visual-eval/commands'
 ```
+
+The command runtime uses `Cypress.expose()` for flags such as baseline generation and AI-disable mode.
 
 ### 3. Add your API key
 
@@ -201,4 +207,3 @@ npm run test:mutation
 
 Vitest coverage reports are written to `coverage/`.
 Stryker mutation reports are written to `reports/mutation/`.
-
