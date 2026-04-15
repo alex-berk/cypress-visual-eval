@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createProvider } from '../src/providers/factory'
 import type { VisualEvalProvider } from '../src/providers/types'
+import { SYSTEM_PROMPT } from '../src/providers/prompt'
 
 const providerCases = [
   { provider: 'claude', envVar: 'ANTHROPIC_API_KEY', defaultModel: 'claude-sonnet-4-6' },
@@ -11,21 +12,33 @@ const providerCases = [
 vi.mock('../src/providers/claude', () => ({
   ClaudeProvider: class ClaudeProvider {
     model: string
-    constructor(public apiKey: string, model?: string) { this.model = model ?? 'claude-sonnet-4-6' }
+    systemPrompt: string
+    constructor(public apiKey: string, systemPrompt?: string, model?: string) {
+      this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
+      this.model = model ?? 'claude-sonnet-4-6'
+    }
     async compare() { return { pass: true, reason: 'mock' } }
   }
 }))
 vi.mock('../src/providers/openai', () => ({
   OpenAIProvider: class OpenAIProvider {
     model: string
-    constructor(public apiKey: string, model?: string) { this.model = model ?? 'gpt-4o' }
+    systemPrompt: string
+    constructor(public apiKey: string, systemPrompt?: string, model?: string) {
+      this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
+      this.model = model ?? 'gpt-4o'
+    }
     async compare() { return { pass: true, reason: 'mock' } }
   }
 }))
 vi.mock('../src/providers/gemini', () => ({
   GeminiProvider: class GeminiProvider {
     model: string
-    constructor(public apiKey: string, model?: string) { this.model = model ?? 'gemini-2.0-flash' }
+    systemPrompt: string
+    constructor(public apiKey: string, systemPrompt?: string, model?: string) {
+      this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
+      this.model = model ?? 'gemini-2.0-flash'
+    }
     async compare() { return { pass: true, reason: 'mock' } }
   }
 }))
@@ -106,5 +119,10 @@ describe('createProvider', () => {
   it('passes model through to the provider', async () => {
     const provider = await createProvider({ provider: 'claude', apiKey: 'key', model: 'claude-opus-4-6' })
     expect((provider as any).model).toBe('claude-opus-4-6')
+  })
+
+  it('passes systemPrompt through to the provider', async () => {
+    const provider = await createProvider({ provider: 'openai', apiKey: 'key', systemPrompt: 'Custom system prompt' })
+    expect((provider as any).systemPrompt).toBe('Custom system prompt')
   })
 })
