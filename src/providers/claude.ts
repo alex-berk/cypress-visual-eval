@@ -4,9 +4,11 @@ import { SYSTEM_PROMPT, parseResponse } from './prompt'
 export class ClaudeProvider implements VisualEvalProvider {
   private apiKey: string
   private model: string
+  private systemPrompt: string
 
-  constructor(apiKey: string, model?: string) {
+  constructor(apiKey: string, systemPrompt?: string, model?: string) {
     this.apiKey = apiKey
+    this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
     this.model = model ?? 'claude-sonnet-4-6'
   }
 
@@ -41,7 +43,7 @@ export class ClaudeProvider implements VisualEvalProvider {
     const response = await client.messages.create({
       model: this.model,
       max_tokens: 256,
-      system: SYSTEM_PROMPT,
+      system: this.systemPrompt,
       messages: [{ role: 'user', content: images }],
     })
 

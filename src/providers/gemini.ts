@@ -4,9 +4,11 @@ import { SYSTEM_PROMPT, parseResponse } from './prompt'
 export class GeminiProvider implements VisualEvalProvider {
   private apiKey: string
   private model: string
+  private systemPrompt: string
 
-  constructor(apiKey: string, model?: string) {
+  constructor(apiKey: string, systemPrompt?: string, model?: string) {
     this.apiKey = apiKey
+    this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
     this.model = model ?? 'gemini-2.0-flash'
   }
 
@@ -41,7 +43,7 @@ export class GeminiProvider implements VisualEvalProvider {
     const response = await client.models.generateContent({
       model: this.model,
       contents: [{ parts }],
-      config: { systemInstruction: SYSTEM_PROMPT },
+      config: { systemInstruction: this.systemPrompt },
     })
     return parseResponse(response.text ?? '')
   }

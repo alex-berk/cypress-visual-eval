@@ -6,6 +6,7 @@ export interface ProviderConfig {
   provider?: ProviderName | VisualEvalProvider
   model?: string
   apiKey?: string
+  systemPrompt?: string
 }
 
 export async function createProvider(config: ProviderConfig): Promise<VisualEvalProvider | null> {
@@ -19,15 +20,15 @@ export async function createProvider(config: ProviderConfig): Promise<VisualEval
   switch (config.provider) {
     case 'claude': {
       const { ClaudeProvider } = await import('./claude')
-      return new ClaudeProvider(apiKey, config.model)
+      return new ClaudeProvider(apiKey, config.systemPrompt, config.model)
     }
     case 'openai': {
       const { OpenAIProvider } = await import('./openai')
-      return new OpenAIProvider(apiKey, config.model)
+      return new OpenAIProvider(apiKey, config.systemPrompt, config.model)
     }
     case 'gemini': {
       const { GeminiProvider } = await import('./gemini')
-      return new GeminiProvider(apiKey, config.model)
+      return new GeminiProvider(apiKey, config.systemPrompt, config.model)
     }
     default:
       throw new Error(`[cypress-visual-eval] Unknown provider "${config.provider}". Valid options: claude, openai, gemini`)

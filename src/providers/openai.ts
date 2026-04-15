@@ -4,9 +4,11 @@ import { SYSTEM_PROMPT, parseResponse } from './prompt'
 export class OpenAIProvider implements VisualEvalProvider {
   private apiKey: string
   private model: string
+  private systemPrompt: string
 
-  constructor(apiKey: string, model?: string) {
+  constructor(apiKey: string, systemPrompt?: string, model?: string) {
     this.apiKey = apiKey
+    this.systemPrompt = systemPrompt ?? SYSTEM_PROMPT
     this.model = model ?? 'gpt-4o'
   }
 
@@ -42,7 +44,7 @@ export class OpenAIProvider implements VisualEvalProvider {
       model: this.model,
       max_tokens: 256,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: this.systemPrompt },
         { role: 'user', content: images },
       ],
     })
