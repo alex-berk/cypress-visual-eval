@@ -1,5 +1,5 @@
 # cypress-visual-eval
-[![npm](https://img.shields.io/npm/v/cypress-visual-eval)](https://www.npmjs.com/package/cypress-visual-eval)
+![NPM Version](https://img.shields.io/npm/v/cypress-visual-eval?style=flat-square&color=blue)
 
 AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline using pixel diffing, and — only when a difference is detected — uses a vision AI model to decide whether the difference is a real bug or acceptable variance.
 
