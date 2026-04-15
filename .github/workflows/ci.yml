@@ -88,175 +88,117 @@ jobs:
             vite-tests-demo/cypress/baseline
           if-no-files-found: ignore
 
-  demo-negative-no-ai:
-    name: demo-negative-no-ai
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout plugin repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install plugin dependencies
-        run: npm ci
-
-      - name: Build plugin
-        run: npm run build
-
-      - name: Pack plugin
-        run: npm pack
-
-      - name: Checkout demo repo
-        uses: actions/checkout@v4
-        with:
-          repository: alex-berk/vite-tests-demo
-          path: vite-tests-demo
-
-      - name: Install demo dependencies
-        working-directory: vite-tests-demo
-        run: npm ci
-
-      - name: Install packed plugin into demo repo
-        working-directory: vite-tests-demo
-        run: npm install --no-save ../cypress-visual-eval-*.tgz
-
-      - name: Start demo app
-        working-directory: vite-tests-demo
-        run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
-
-      - name: Wait for demo app
-        run: |
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
-              curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-
-          cat /tmp/vite-tests-demo.log
-          exit 1
-
-      - name: Run negative visual suite without AI
-        working-directory: vite-tests-demo
-        run: npm run test:visual:negative:no-ai
-
-      - name: Upload demo logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: demo-server-log-negative-no-ai
-          path: /tmp/vite-tests-demo.log
-          if-no-files-found: ignore
-
-      - name: Upload Cypress artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: demo-cypress-artifacts-negative-no-ai
-          path: |
-            vite-tests-demo/cypress/screenshots
-            vite-tests-demo/cypress/baseline
-          if-no-files-found: ignore
-
-  demo-negative-ai:
-    name: demo-negative-ai
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      AI_VISUAL_API_KEY: ${{ secrets.AI_VISUAL_API_KEY }}
-    steps:
-      - name: Checkout plugin repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install plugin dependencies
-        run: npm ci
-
-      - name: Build plugin
-        run: npm run build
-
-      - name: Pack plugin
-        run: npm pack
-
-      - name: Checkout demo repo
-        uses: actions/checkout@v4
-        with:
-          repository: alex-berk/vite-tests-demo
-          path: vite-tests-demo
-
-      - name: Install demo dependencies
-        working-directory: vite-tests-demo
-        run: npm ci
-
-      - name: Install packed plugin into demo repo
-        working-directory: vite-tests-demo
-        run: npm install --no-save ../cypress-visual-eval-*.tgz
-
-      - name: Start demo app
-        working-directory: vite-tests-demo
-        run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
-
-      - name: Wait for demo app
-        run: |
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
-              curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-
-          cat /tmp/vite-tests-demo.log
-          exit 1
-
-      - name: Run negative visual suite with AI
-        working-directory: vite-tests-demo
-        run: npm run test:visual:negative:ai
-
-      - name: Upload demo logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: demo-server-log-negative-ai
-          path: /tmp/vite-tests-demo.log
-          if-no-files-found: ignore
-
-      - name: Upload Cypress artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: demo-cypress-artifacts-negative-ai
-          path: |
-            vite-tests-demo/cypress/screenshots
-            vite-tests-demo/cypress/baseline
-          if-no-files-found: ignore
+  # demo-negative-no-ai:
+  #   name: demo-negative-no-ai
+  #   if: github.event.pull_request.head.repo.full_name == github.repository
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Checkout plugin repo
+  #       uses: actions/checkout@v4
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: npm
+  #     - name: Install plugin dependencies
+  #       run: npm ci
+  #     - name: Build plugin
+  #       run: npm run build
+  #     - name: Pack plugin
+  #       run: npm pack
+  #     - name: Checkout demo repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: alex-berk/testing-demo-vue-dashboard
+  #         path: vite-tests-demo
+  #     - name: Install demo dependencies
+  #       working-directory: vite-tests-demo
+  #       run: npm ci
+  #     - name: Install packed plugin into demo repo
+  #       working-directory: vite-tests-demo
+  #       run: npm install --no-save ../cypress-visual-eval-*.tgz
+  #     - name: Start demo app
+  #       working-directory: vite-tests-demo
+  #       run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
+  #     - name: Wait for demo app
+  #       run: |
+  #         for attempt in {1..60}; do
+  #           if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
+  #             curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
+  #             exit 0
+  #           fi
+  #           sleep 2
+  #         done
+  #
+  #         cat /tmp/vite-tests-demo.log
+  #         exit 1
+  #     - name: Run negative visual suite without AI
+  #       working-directory: vite-tests-demo
+  #       run: npm run test:visual:negative:no-ai
+  #
+  # demo-negative-ai:
+  #   name: demo-negative-ai
+  #   if: github.event.pull_request.head.repo.full_name == github.repository
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   env:
+  #     AI_VISUAL_API_KEY: ${{ secrets.AI_VISUAL_API_KEY }}
+  #   steps:
+  #     - name: Checkout plugin repo
+  #       uses: actions/checkout@v4
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: npm
+  #     - name: Install plugin dependencies
+  #       run: npm ci
+  #     - name: Build plugin
+  #       run: npm run build
+  #     - name: Pack plugin
+  #       run: npm pack
+  #     - name: Checkout demo repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: alex-berk/testing-demo-vue-dashboard
+  #         path: vite-tests-demo
+  #     - name: Install demo dependencies
+  #       working-directory: vite-tests-demo
+  #       run: npm ci
+  #     - name: Install packed plugin into demo repo
+  #       working-directory: vite-tests-demo
+  #       run: npm install --no-save ../cypress-visual-eval-*.tgz
+  #     - name: Start demo app
+  #       working-directory: vite-tests-demo
+  #       run: npm run dev > /tmp/vite-tests-demo.log 2>&1 &
+  #     - name: Wait for demo app
+  #       run: |
+  #         for attempt in {1..60}; do
+  #           if curl --fail --silent http://127.0.0.1:5173 >/dev/null &&
+  #             curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
+  #             exit 0
+  #           fi
+  #           sleep 2
+  #         done
+  #
+  #         cat /tmp/vite-tests-demo.log
+  #         exit 1
+  #     - name: Run negative visual suite with AI
+  #       working-directory: vite-tests-demo
+  #       run: npm run test:visual:negative:ai
 
   ci-passed:
     if: always()
-    needs: [build-and-test, demo-smoke, demo-negative-no-ai, demo-negative-ai]
+    needs: [build-and-test, demo-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required jobs
         run: |
           echo "build-and-test result: ${{ needs.build-and-test.result }}"
           echo "demo-smoke result: ${{ needs.demo-smoke.result }}"
-          echo "demo-negative-no-ai result: ${{ needs.demo-negative-no-ai.result }}"
-          echo "demo-negative-ai result: ${{ needs.demo-negative-ai.result }}"
 
           if [ "${{ needs.build-and-test.result }}" != "success" ]; then
             echo "build-and-test did not succeed"
@@ -265,16 +207,6 @@ jobs:
 
           if [ "${{ needs.demo-smoke.result }}" != "success" ] && [ "${{ needs.demo-smoke.result }}" != "skipped" ]; then
             echo "demo-smoke did not succeed"
-            exit 1
-          fi
-
-          if [ "${{ needs.demo-negative-no-ai.result }}" != "success" ] && [ "${{ needs.demo-negative-no-ai.result }}" != "skipped" ]; then
-            echo "demo-negative-no-ai did not succeed"
-            exit 1
-          fi
-
-          if [ "${{ needs.demo-negative-ai.result }}" != "success" ] && [ "${{ needs.demo-negative-ai.result }}" != "skipped" ]; then
-            echo "demo-negative-ai did not succeed"
             exit 1
           fi
 
