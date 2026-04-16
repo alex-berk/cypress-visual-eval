@@ -69,6 +69,7 @@ describe('visualEvalPlugin', () => {
         name: 'missing-baseline',
         spec: 'spec.cy.ts',
         aiEnabled: true,
+        options: {},
       })
     ).rejects.toThrow('missing baseline image')
   })
@@ -87,6 +88,7 @@ describe('visualEvalPlugin', () => {
         name: 'missing-eval',
         spec: 'spec.cy.ts',
         aiEnabled: true,
+        options: {},
       })
     ).rejects.toThrow('missing eval image')
   })
@@ -107,7 +109,7 @@ describe('visualEvalPlugin', () => {
       name: 'login',
       spec: 'auth/spec.cy.ts',
       aiEnabled: false,
-      pixelDiffThreshold: 3,
+      options: { pixelDiffThreshold: 3 },
     })
 
     expect(result).toEqual({
@@ -132,7 +134,7 @@ describe('visualEvalPlugin', () => {
       name: 'no-provider',
       spec: 'auth/spec.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 3,
+      options: { pixelDiffThreshold: 3 },
     })
 
     expect(result).toEqual({
@@ -157,7 +159,7 @@ describe('visualEvalPlugin', () => {
       name: 'home',
       spec: 'home.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 0,
+      options: { pixelDiffThreshold: 0 },
     })
 
     expect(result).toEqual({ pass: true, reason: 'Images are identical' })
@@ -180,7 +182,7 @@ describe('visualEvalPlugin', () => {
       name: 'settings',
       spec: 'settings.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 5,
+      options: { pixelDiffThreshold: 5 },
     })
 
     expect(result).toEqual({
@@ -206,7 +208,7 @@ describe('visualEvalPlugin', () => {
       name: 'settings-equal',
       spec: 'settings.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 5,
+      options: { pixelDiffThreshold: 5 },
     })
 
     expect(result).toEqual({
@@ -231,13 +233,14 @@ describe('visualEvalPlugin', () => {
     tasks.visualEvalGenerateBase({
       name: 'default-paths',
       spec: 'folder/spec.cy.ts',
+      options: {},
     })
 
     await tasks.visualEvalCompareScreenshots({
       name: 'default-paths',
       spec: 'folder/spec.cy.ts',
       aiEnabled: false,
-      pixelDiffThreshold: 0,
+      options: { pixelDiffThreshold: 0 },
     })
 
     expect(moveScreenshot).toHaveBeenNthCalledWith(
@@ -259,30 +262,60 @@ describe('visualEvalPlugin', () => {
 
   it('passes config.env AI_VISUAL_API_KEY into provider creation when options.apiKey is missing', async () => {
     createProvider.mockResolvedValue(null)
+    moveScreenshot.mockReturnValue('/tmp/eval/env-key.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
 
-    await setupPlugin(
+    const { tasks } = await setupPlugin(
       { provider: 'claude' },
       { env: { AI_VISUAL_API_KEY: 'env-key' } }
     )
 
+    await tasks.visualEvalCompareScreenshots({
+      name: 'env-key',
+      spec: 'env.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'claude',
       apiKey: 'env-key',
+      model: undefined,
       systemPrompt: buildSystemPrompt(),
     })
   })
 
   it('does not crash when config.env is missing', async () => {
     createProvider.mockResolvedValue(null)
+    moveScreenshot.mockReturnValue('/tmp/eval/no-env.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
 
-    await setupPlugin(
+    const { tasks } = await setupPlugin(
       { provider: 'claude' },
       { env: undefined }
     )
 
+    await tasks.visualEvalCompareScreenshots({
+      name: 'no-env',
+      spec: 'env.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'claude',
       apiKey: undefined,
+      model: undefined,
       systemPrompt: buildSystemPrompt(),
     })
   })
@@ -308,7 +341,7 @@ describe('visualEvalPlugin', () => {
       name: 'debug-on',
       spec: 'debug.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 0,
+      options: { pixelDiffThreshold: 0 },
     })
 
     expect(logSpy).toHaveBeenCalledWith('[cypress-visual-eval] Detected diff: 6, threshold: 0')
@@ -321,14 +354,14 @@ describe('visualEvalPlugin', () => {
       name: 'debug-off',
       spec: 'debug.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 0,
+      options: { pixelDiffThreshold: 0 },
     })
 
     expect(logSpy).not.toHaveBeenCalled()
     logSpy.mockRestore()
   })
 
-  it('creates the provider during startup and surfaces missing-key failure when AI compare runs', async () => {
+  it('creates the provider during compare and surfaces missing-key failure when AI compare runs', async () => {
     const noKeyError = new Error('[cypress-visual-eval] No API key found for provider "openai"')
     createProvider.mockRejectedValue(noKeyError)
     moveScreenshot.mockReturnValue('/tmp/eval/dashboard.png')
@@ -341,34 +374,163 @@ describe('visualEvalPlugin', () => {
 
     const { tasks } = await setupPlugin({ provider: 'openai' })
 
-    expect(createProvider).toHaveBeenCalledWith({
-      provider: 'openai',
-      apiKey: undefined,
-      systemPrompt: buildSystemPrompt(),
-    })
-
     await expect(
       tasks.visualEvalCompareScreenshots({
         name: 'dashboard',
         spec: 'dashboard.cy.ts',
         aiEnabled: true,
-        pixelDiffThreshold: 0,
+        options: { pixelDiffThreshold: 0 },
       })
     ).rejects.toThrow('No API key found for provider "openai"')
+
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'openai',
+      apiKey: undefined,
+      model: undefined,
+      systemPrompt: buildSystemPrompt(),
+    })
+  })
+
+  it('uses plugin-level pixelDiffThreshold when the command does not override it', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>()
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/plugin-threshold.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 2,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({ provider: 'openai', pixelDiffThreshold: 3 })
+    const result = await tasks.visualEvalCompareScreenshots({
+      name: 'plugin-threshold',
+      spec: 'threshold.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+
+    expect(result).toEqual({
+      pass: true,
+      reason: 'Detected diff: 2 <= threshold 3',
+    })
+    expect(compare).not.toHaveBeenCalled()
+  })
+
+  it('lets per-call directories override plugin defaults', async () => {
+    createProvider.mockResolvedValue(null)
+    moveScreenshot.mockReturnValue('/tmp/eval/override-paths.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 9,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({
+      baselineDir: 'baseline/default',
+      screenshotsDir: '/tmp/screenshots/default',
+    })
+
+    tasks.visualEvalGenerateBase({
+      name: 'override-paths',
+      spec: 'folder/spec.cy.ts',
+      options: {
+        baselineDir: 'baseline/per-call',
+      },
+    })
+
+    await tasks.visualEvalCompareScreenshots({
+      name: 'override-paths',
+      spec: 'folder/spec.cy.ts',
+      aiEnabled: false,
+      options: {
+        screenshotsDir: '/tmp/screenshots/per-call',
+      },
+    })
+
+    expect(moveScreenshot).toHaveBeenNthCalledWith(
+      1,
+      'override-paths',
+      'folder/spec.cy.ts',
+      '/tmp/cypress/screenshots',
+      'baseline/per-call'
+    )
+    expect(moveScreenshot).toHaveBeenNthCalledWith(
+      2,
+      'override-paths',
+      'folder/spec.cy.ts',
+      '/tmp/cypress/screenshots',
+      '/tmp/screenshots/per-call',
+      've-'
+    )
+  })
+
+  it('creates an override provider lazily when per-call provider settings are supplied', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>().mockResolvedValue({
+      pass: true,
+      reason: 'override provider',
+    })
+    const promptPath = createPromptFile('Focus on only severe layout regressions.')
+
+    createProvider.mockResolvedValueOnce({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/override-provider.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 7,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({ debug: false })
+    const result = await tasks.visualEvalCompareScreenshots({
+      name: 'override-provider',
+      spec: 'override.cy.ts',
+      aiEnabled: true,
+      options: {
+        provider: 'gemini',
+        model: 'gemini-2.5-flash',
+        apiKey: 'override-key',
+        promptPath,
+      },
+    })
+
+    expect(result).toEqual({ pass: true, reason: 'override provider' })
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      apiKey: 'override-key',
+      systemPrompt: buildSystemPrompt('Focus on only severe layout regressions.'),
+    })
   })
 
   it('loads a custom prompt file and passes the composed prompt to provider creation', async () => {
     createProvider.mockResolvedValue(null)
     const promptPath = createPromptFile('Focus on layout shifts and text corruption.')
+    moveScreenshot.mockReturnValue('/tmp/eval/custom-prompt.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
 
-    await setupPlugin(
+    const { tasks } = await setupPlugin(
       { provider: 'claude', promptPath },
       { projectRoot: '/unused/project-root' }
     )
 
+    await tasks.visualEvalCompareScreenshots({
+      name: 'custom-prompt',
+      spec: 'prompt.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'claude',
       apiKey: undefined,
+      model: undefined,
       systemPrompt: buildSystemPrompt('Focus on layout shifts and text corruption.'),
     })
   })
@@ -379,15 +541,30 @@ describe('visualEvalPlugin', () => {
     const promptsDir = path.join(projectRoot, 'prompts')
     fs.mkdirSync(promptsDir)
     fs.writeFileSync(path.join(promptsDir, 'visual-rules.txt'), 'Be strict about missing icons.')
+    moveScreenshot.mockReturnValue('/tmp/eval/relative-prompt.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
 
-    await setupPlugin(
+    const { tasks } = await setupPlugin(
       { provider: 'openai', promptPath: 'prompts/visual-rules.txt' },
       { projectRoot }
     )
 
+    await tasks.visualEvalCompareScreenshots({
+      name: 'relative-prompt',
+      spec: 'prompt.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'openai',
       apiKey: undefined,
+      model: undefined,
       systemPrompt: buildSystemPrompt('Be strict about missing icons.'),
     })
   })

@@ -88,17 +88,28 @@ describe('visualTest command', () => {
       specName: 'nested/spec.cy.ts',
     })
 
-    visualTest('auth/login/form', { capture: 'viewport', pixelDiffThreshold: 7 })
+    visualTest('auth/login/form', {
+      capture: 'viewport',
+      pixelDiffThreshold: 7,
+      provider: 'openai',
+      model: 'gpt-4.1-mini',
+      debug: true,
+    })
 
     expect(screenshot).toHaveBeenCalledWith('ve-auth/login/form', {
-      overwrite: true,
       capture: 'viewport',
+      overwrite: true,
     })
     expect(task).toHaveBeenCalledWith('visualEvalCompareScreenshots', {
       name: 'auth/login/form',
       spec: 'nested/spec.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 7,
+      options: {
+        pixelDiffThreshold: 7,
+        provider: 'openai',
+        model: 'gpt-4.1-mini',
+        debug: true,
+      },
     })
   })
 
@@ -115,7 +126,7 @@ describe('visualTest command', () => {
       name: 'dashboard/summary',
       spec: 'spec.cy.ts',
       aiEnabled: false,
-      pixelDiffThreshold: undefined,
+      options: {},
     })
   })
 
@@ -124,16 +135,24 @@ describe('visualTest command', () => {
       generateBaseline: 'TRUE',
     })
 
-    visualTest('landing-page', { capture: 'runner' })
+    visualTest('landing-page', {
+      capture: 'runner',
+      baselineDir: 'custom/baseline',
+      promptPath: 'prompts/rules.md',
+    })
 
     expect(cypressStub.expose).toHaveBeenCalledWith('GENERATE_BASELINE')
     expect(screenshot).toHaveBeenCalledWith('landing-page', {
-      overwrite: true,
       capture: 'runner',
+      overwrite: true,
     })
     expect(task).toHaveBeenCalledWith('visualEvalGenerateBase', {
       name: 'landing-page',
       spec: 'spec.cy.ts',
+      options: {
+        baselineDir: 'custom/baseline',
+        promptPath: 'prompts/rules.md',
+      },
     })
   })
 
@@ -147,7 +166,7 @@ describe('visualTest command', () => {
       name: 'checkout',
       spec: 'spec.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: undefined,
+      options: {},
     })
   })
 
