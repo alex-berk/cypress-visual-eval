@@ -16,12 +16,7 @@ export function parseResponse(raw: string): CompareResult {
   }
 }
 
-export const SYSTEM_PROMPT = `You are reviewing a visual regression test for a web app.
-
-You will receive 3 images in this exact order:
-1. BASELINE screenshot — the expected correct UI
-2. COMPARE screenshot — the UI produced during the test
-3. DIFF image — changed pixels highlighted between BASELINE and COMPARE. Change is represented with red and yellow pixels
+export const DEFAULT_EVALUATION_GUIDANCE = `You are reviewing a visual regression test for a web app.
 
 Your task is to decide whether the test should pass.
 
@@ -49,9 +44,14 @@ Pass the test only if the differences are clearly harmless, such as:
 
 Decision rule:
 - Be biased toward failing when there is a real visible regression.
-- If unsure between harmless and buggy, prefer failing.
+- If unsure between harmless and buggy, prefer failing.`
 
-Return exactly one JSON object in this schema:
+export const IMAGE_INPUT_CONTRACT = `You will receive 3 images in this exact order:
+1. BASELINE screenshot — the expected correct UI
+2. COMPARE screenshot — the UI produced during the test
+3. DIFF image — changed pixels highlighted between BASELINE and COMPARE. Change is represented with red and yellow pixels`
+
+export const OUTPUT_FORMAT_RULES = `Return exactly one JSON object in this schema:
 { "pass": boolean, "reason": string }
 
 Output rules:
@@ -61,3 +61,15 @@ Output rules:
 
 Important rule:
 - Return JSON only, with NO markdown, NO extra text, and NO code fences`
+
+export function buildSystemPrompt(customPrompt?: string): string {
+  const sections = [
+    customPrompt?.trim() || DEFAULT_EVALUATION_GUIDANCE,
+    IMAGE_INPUT_CONTRACT,
+    OUTPUT_FORMAT_RULES,
+  ]
+
+  return sections.join('\n\n')
+}
+
+export const SYSTEM_PROMPT = buildSystemPrompt()

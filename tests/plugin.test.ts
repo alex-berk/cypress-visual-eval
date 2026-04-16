@@ -1,5 +1,8 @@
+import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildSystemPrompt } from '../src/providers/prompt'
 import type { CompareResult } from '../src/providers/types'
 
 const moveScreenshot = vi.fn()
@@ -43,6 +46,13 @@ describe('visualEvalPlugin', () => {
 
     expect(registeredTasks).toBeDefined()
     return { on, tasks: registeredTasks! }
+  }
+
+  function createPromptFile(contents = 'Focus on layout and text rendering regressions.'): string {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cve-prompt-'))
+    const promptPath = path.join(tempDir, 'visual-eval-prompt.md')
+    fs.writeFileSync(promptPath, contents)
+    return promptPath
   }
 
   it('fails compare when the baseline image is missing', async () => {
@@ -258,6 +268,7 @@ describe('visualEvalPlugin', () => {
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'claude',
       apiKey: 'env-key',
+      systemPrompt: buildSystemPrompt(),
     })
   })
 
@@ -272,6 +283,7 @@ describe('visualEvalPlugin', () => {
     expect(createProvider).toHaveBeenCalledWith({
       provider: 'claude',
       apiKey: undefined,
+      systemPrompt: buildSystemPrompt(),
     })
   })
 
@@ -329,7 +341,11 @@ describe('visualEvalPlugin', () => {
 
     const { tasks } = await setupPlugin({ provider: 'openai' })
 
-    expect(createProvider).toHaveBeenCalledWith({ provider: 'openai', apiKey: undefined })
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'openai',
+      apiKey: undefined,
+      systemPrompt: buildSystemPrompt(),
+    })
 
     await expect(
       tasks.visualEvalCompareScreenshots({
@@ -339,5 +355,55 @@ describe('visualEvalPlugin', () => {
         pixelDiffThreshold: 0,
       })
     ).rejects.toThrow('No API key found for provider "openai"')
+  })
+
+  it('loads a custom prompt file and passes the composed prompt to provider creation', async () => {
+    createProvider.mockResolvedValue(null)
+    const promptPath = createPromptFile('Focus on layout shifts and text corruption.')
+
+    await setupPlugin(
+      { provider: 'claude', promptPath },
+      { projectRoot: '/unused/project-root' }
+    )
+
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'claude',
+      apiKey: undefined,
+      systemPrompt: buildSystemPrompt('Focus on layout shifts and text corruption.'),
+    })
+  })
+
+  it('resolves relative prompt paths from config.projectRoot', async () => {
+    createProvider.mockResolvedValue(null)
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cve-project-'))
+    const promptsDir = path.join(projectRoot, 'prompts')
+    fs.mkdirSync(promptsDir)
+    fs.writeFileSync(path.join(promptsDir, 'visual-rules.txt'), 'Be strict about missing icons.')
+
+    await setupPlugin(
+      { provider: 'openai', promptPath: 'prompts/visual-rules.txt' },
+      { projectRoot }
+    )
+
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'openai',
+      apiKey: undefined,
+      systemPrompt: buildSystemPrompt('Be strict about missing icons.'),
+    })
+  })
+
+  it('throws during setup when promptPath has an unsupported extension', async () => {
+    await expect(
+      setupPlugin({ provider: 'openai', promptPath: 'prompts/visual-rules.json' })
+    ).rejects.toThrow('Only .md and .txt files are supported')
+  })
+
+  it('throws during setup when the prompt file is missing', async () => {
+    await expect(
+      setupPlugin(
+        { provider: 'openai', promptPath: 'prompts/missing-prompt.md' },
+        { projectRoot: '/tmp/non-existent-project-root' }
+      )
+    ).rejects.toThrow('Failed to read prompt file')
   })
 })

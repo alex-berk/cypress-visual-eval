@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { parseResponse, SYSTEM_PROMPT } from '../src/providers/prompt'
+import {
+  buildSystemPrompt,
+  DEFAULT_EVALUATION_GUIDANCE,
+  IMAGE_INPUT_CONTRACT,
+  OUTPUT_FORMAT_RULES,
+  parseResponse,
+  SYSTEM_PROMPT,
+} from '../src/providers/prompt'
 
 describe('parseResponse', () => {
   it('parses valid JSON with pass: true', () => {
@@ -71,6 +78,10 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT.trim().length).toBeGreaterThan(0)
   })
 
+  it('includes the default evaluation guidance', () => {
+    expect(SYSTEM_PROMPT).toContain(DEFAULT_EVALUATION_GUIDANCE)
+  })
+
   it('instructs the model to return JSON only', () => {
     expect(SYSTEM_PROMPT).toContain('Return JSON only')
     expect(SYSTEM_PROMPT).toContain('{ "pass": boolean, "reason": string }')
@@ -80,5 +91,21 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toContain('BASELINE screenshot')
     expect(SYSTEM_PROMPT).toContain('COMPARE screenshot')
     expect(SYSTEM_PROMPT).toContain('DIFF image')
+  })
+})
+
+describe('buildSystemPrompt', () => {
+  it('uses custom guidance when provided', () => {
+    const prompt = buildSystemPrompt('Focus on typography and spacing changes.')
+
+    expect(prompt).toContain('Focus on typography and spacing changes.')
+    expect(prompt).not.toContain(DEFAULT_EVALUATION_GUIDANCE)
+  })
+
+  it('always includes the image input contract and output format rules', () => {
+    const prompt = buildSystemPrompt('Custom prompt')
+
+    expect(prompt).toContain(IMAGE_INPUT_CONTRACT)
+    expect(prompt).toContain(OUTPUT_FORMAT_RULES)
   })
 })

@@ -45,6 +45,7 @@ export default defineConfig({
       visualEvalPlugin(on, config, {
         provider: 'claude',          // 'claude' | 'openai' | 'gemini'
         baselineDir: 'cypress/baseline', // optional, this is the default
+        promptPath: 'cypress/prompts/visual-eval.md', // optional custom prompt file
       })
     }
   }
@@ -138,6 +139,64 @@ visualEvalPlugin(on, config, {
   model: 'claude-opus-4-20250514',
 })
 ```
+
+### Custom prompts
+
+By default, the plugin uses its built-in visual evaluation guidance. If you want to customize the AI reviewer, pass a `promptPath` that points to a `.md` or `.txt` file:
+
+```js
+import { defineConfig } from 'cypress'
+import { visualEvalPlugin } from 'cypress-visual-eval'
+
+export default defineConfig({
+  e2e: {
+    setupNodeEvents(on, config) {
+      visualEvalPlugin(on, config, {
+        provider: 'openai',
+        promptPath: 'cypress/prompts/checkout-review.md',
+      })
+    }
+  }
+})
+```
+
+How `promptPath` works:
+
+- Supports `.md` and `.txt` files only
+- Relative paths resolve from the Cypress project root
+- Absolute paths are also supported
+- If `promptPath` is omitted, the built-in default prompt is used
+- If the file is missing, unreadable, or uses the wrong extension, plugin setup fails immediately with a clear error
+
+When you provide a custom prompt file, its contents replace the plugin's built-in evaluation guidance. The plugin still appends:
+
+- the fixed image contract describing the BASELINE, COMPARE, and DIFF images
+- the JSON-only response rules required for parsing
+
+This means your custom prompt should focus on evaluation criteria, priorities, and review style, not on output formatting.
+
+Example `cypress/prompts/checkout-review.md`:
+
+```md
+Review this UI diff like a strict product designer.
+
+Fail when:
+- typography or spacing changes are visible
+- primary actions shift position or change emphasis
+- icons, logos, or illustrations are missing or distorted
+- content looks clipped, wrapped badly, or visually unbalanced
+
+Pass only when the difference is clearly harmless rendering noise.
+
+Prefer failing when the change might be user-noticeable.
+```
+
+Recommended prompt authoring tips:
+
+- Describe what kinds of regressions matter most for your product
+- Explain when the model should be strict versus lenient
+- Keep the instructions focused on visual judgment
+- Do not include JSON schema or formatting instructions, because the plugin adds those automatically
 
 ### Custom provider
 
