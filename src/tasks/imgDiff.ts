@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { PNG, PNGWithMetadata } from 'pngjs';
 import pixelmatchPkg from "pixelmatch";
+import type { PixelmatchOptions } from '../types';
 const pixelmatch = (pixelmatchPkg as any).default ?? pixelmatchPkg
 
 function loadImage(imgPath: string): PNGWithMetadata {
@@ -21,7 +22,12 @@ export interface ImgDiffResult {
   diffBase64: string
 }
 
-export function imgDiff(name: string, screenshotsBaseFolder: string, screenshotsEvalFolder: string, sensitivity?: number): ImgDiffResult {
+export function imgDiff(
+  name: string,
+  screenshotsBaseFolder: string,
+  screenshotsEvalFolder: string,
+  pixelmatchOptions: PixelmatchOptions = {}
+): ImgDiffResult {
   const imgBasePath = path.join(screenshotsBaseFolder, `${name}.png`)
   const imgEvalPath = path.join(screenshotsEvalFolder, `${name}.png`)
   const imgBase = loadImage(imgBasePath)
@@ -29,7 +35,15 @@ export function imgDiff(name: string, screenshotsBaseFolder: string, screenshots
 
   const { width, height } = imgBase
   const diff = new PNG({ width, height })
-  const pixelCount = pixelmatch(imgBase.data, imgEval.data, diff.data, width, height, { threshold: sensitivity ?? 0.1 })
+  const pixelCount = pixelmatch(imgBase.data, imgEval.data, diff.data, width, height, {
+    threshold: pixelmatchOptions.threshold ?? 0.1,
+    includeAA: pixelmatchOptions.includeAA,
+    alpha: pixelmatchOptions.alpha,
+    aaColor: pixelmatchOptions.aaColor,
+    diffColor: pixelmatchOptions.diffColor,
+    diffColorAlt: pixelmatchOptions.diffColorAlt,
+    diffMask: pixelmatchOptions.diffMask,
+  })
 
   const diffPath = path.join(screenshotsEvalFolder, `${path.parse(name).name}_diff.png`)
   fs.writeFileSync(diffPath, PNG.sync.write(diff))

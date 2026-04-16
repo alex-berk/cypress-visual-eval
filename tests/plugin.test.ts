@@ -69,7 +69,6 @@ describe('visualEvalPlugin', () => {
         name: 'missing-baseline',
         spec: 'spec.cy.ts',
         aiEnabled: true,
-        options: {},
       })
     ).rejects.toThrow('missing baseline image')
   })
@@ -88,7 +87,6 @@ describe('visualEvalPlugin', () => {
         name: 'missing-eval',
         spec: 'spec.cy.ts',
         aiEnabled: true,
-        options: {},
       })
     ).rejects.toThrow('missing eval image')
   })
@@ -109,7 +107,7 @@ describe('visualEvalPlugin', () => {
       name: 'login',
       spec: 'auth/spec.cy.ts',
       aiEnabled: false,
-      options: { pixelDiffThreshold: 3 },
+      options: { pixelDiffThreshold: 3, threshold: 0.2, includeAA: true },
     })
 
     expect(result).toEqual({
@@ -117,6 +115,15 @@ describe('visualEvalPlugin', () => {
       reason: 'Diff of 42 pixels exceeds threshold of 3, AI fallback disabled',
     })
     expect(compare).not.toHaveBeenCalled()
+    expect(imgDiff).toHaveBeenCalledWith('login', path.join('cypress', 'baseline'), path.join('/tmp/cypress/screenshots', 'visualEval'), {
+      threshold: 0.2,
+      includeAA: true,
+      alpha: undefined,
+      aaColor: undefined,
+      diffColor: undefined,
+      diffColorAlt: undefined,
+      diffMask: undefined,
+    })
   })
 
   it('returns a failure reason when AI compare is enabled but no provider is configured', async () => {
@@ -233,7 +240,6 @@ describe('visualEvalPlugin', () => {
     tasks.visualEvalGenerateBase({
       name: 'default-paths',
       spec: 'folder/spec.cy.ts',
-      options: {},
     })
 
     await tasks.visualEvalCompareScreenshots({
@@ -279,7 +285,6 @@ describe('visualEvalPlugin', () => {
       name: 'env-key',
       spec: 'env.cy.ts',
       aiEnabled: true,
-      options: {},
     })
 
     expect(createProvider).toHaveBeenCalledWith({
@@ -309,7 +314,6 @@ describe('visualEvalPlugin', () => {
       name: 'no-env',
       spec: 'env.cy.ts',
       aiEnabled: true,
-      options: {},
     })
 
     expect(createProvider).toHaveBeenCalledWith({
@@ -407,7 +411,6 @@ describe('visualEvalPlugin', () => {
       name: 'plugin-threshold',
       spec: 'threshold.cy.ts',
       aiEnabled: true,
-      options: {},
     })
 
     expect(result).toEqual({
@@ -417,91 +420,88 @@ describe('visualEvalPlugin', () => {
     expect(compare).not.toHaveBeenCalled()
   })
 
-  it('lets per-call directories override plugin defaults', async () => {
-    createProvider.mockResolvedValue(null)
-    moveScreenshot.mockReturnValue('/tmp/eval/override-paths.png')
+  it('uses plugin-level pixelmatch options when the command does not override them', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>()
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/plugin-pixelmatch.png')
     imgDiff.mockReturnValue({
-      pixelCount: 9,
+      pixelCount: 1,
       baselineBase64: 'baseline',
       evalBase64: 'eval',
       diffBase64: 'diff',
     })
 
     const { tasks } = await setupPlugin({
-      baselineDir: 'baseline/default',
-      screenshotsDir: '/tmp/screenshots/default',
-    })
-
-    tasks.visualEvalGenerateBase({
-      name: 'override-paths',
-      spec: 'folder/spec.cy.ts',
-      options: {
-        baselineDir: 'baseline/per-call',
-      },
+      provider: 'openai',
+      threshold: 0.3,
+      includeAA: true,
+      diffMask: true,
     })
 
     await tasks.visualEvalCompareScreenshots({
-      name: 'override-paths',
-      spec: 'folder/spec.cy.ts',
-      aiEnabled: false,
-      options: {
-        screenshotsDir: '/tmp/screenshots/per-call',
-      },
+      name: 'plugin-pixelmatch',
+      spec: 'pixelmatch.cy.ts',
+      aiEnabled: true,
     })
 
-    expect(moveScreenshot).toHaveBeenNthCalledWith(
-      1,
-      'override-paths',
-      'folder/spec.cy.ts',
-      '/tmp/cypress/screenshots',
-      'baseline/per-call'
-    )
-    expect(moveScreenshot).toHaveBeenNthCalledWith(
-      2,
-      'override-paths',
-      'folder/spec.cy.ts',
-      '/tmp/cypress/screenshots',
-      '/tmp/screenshots/per-call',
-      've-'
+    expect(imgDiff).toHaveBeenCalledWith(
+      'plugin-pixelmatch',
+      path.join('cypress', 'baseline'),
+      path.join('/tmp/cypress/screenshots', 'visualEval'),
+      {
+        threshold: 0.3,
+        includeAA: true,
+        alpha: undefined,
+        aaColor: undefined,
+        diffColor: undefined,
+        diffColorAlt: undefined,
+        diffMask: true,
+      }
     )
   })
 
-  it('creates an override provider lazily when per-call provider settings are supplied', async () => {
-    const compare = vi.fn<() => Promise<CompareResult>>().mockResolvedValue({
-      pass: true,
-      reason: 'override provider',
-    })
-    const promptPath = createPromptFile('Focus on only severe layout regressions.')
-
-    createProvider.mockResolvedValueOnce({ compare })
-    moveScreenshot.mockReturnValue('/tmp/eval/override-provider.png')
+  it('lets command-level pixelmatch options override plugin defaults', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>()
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/override-pixelmatch.png')
     imgDiff.mockReturnValue({
-      pixelCount: 7,
+      pixelCount: 1,
       baselineBase64: 'baseline',
       evalBase64: 'eval',
       diffBase64: 'diff',
     })
 
-    const { tasks } = await setupPlugin({ debug: false })
-    const result = await tasks.visualEvalCompareScreenshots({
-      name: 'override-provider',
-      spec: 'override.cy.ts',
+    const { tasks } = await setupPlugin({
+      provider: 'openai',
+      threshold: 0.3,
+      includeAA: false,
+      diffMask: false,
+    })
+
+    await tasks.visualEvalCompareScreenshots({
+      name: 'override-pixelmatch',
+      spec: 'pixelmatch.cy.ts',
       aiEnabled: true,
       options: {
-        provider: 'gemini',
-        model: 'gemini-2.5-flash',
-        apiKey: 'override-key',
-        promptPath,
+        threshold: 0.05,
+        includeAA: true,
       },
     })
 
-    expect(result).toEqual({ pass: true, reason: 'override provider' })
-    expect(createProvider).toHaveBeenCalledWith({
-      provider: 'gemini',
-      model: 'gemini-2.5-flash',
-      apiKey: 'override-key',
-      systemPrompt: buildSystemPrompt('Focus on only severe layout regressions.'),
-    })
+    expect(imgDiff).toHaveBeenCalledWith(
+      'override-pixelmatch',
+      path.join('cypress', 'baseline'),
+      path.join('/tmp/cypress/screenshots', 'visualEval'),
+      {
+        threshold: 0.05,
+        includeAA: true,
+        alpha: undefined,
+        aaColor: undefined,
+        diffColor: undefined,
+        diffColorAlt: undefined,
+        diffMask: false,
+      }
+    )
   })
 
   it('loads a custom prompt file and passes the composed prompt to provider creation', async () => {

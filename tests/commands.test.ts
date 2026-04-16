@@ -91,9 +91,9 @@ describe('visualTest command', () => {
     visualTest('auth/login/form', {
       capture: 'viewport',
       pixelDiffThreshold: 7,
-      provider: 'openai',
-      model: 'gpt-4.1-mini',
-      debug: true,
+      threshold: 0.2,
+      includeAA: true,
+      diffMask: true,
     })
 
     expect(screenshot).toHaveBeenCalledWith('ve-auth/login/form', {
@@ -106,9 +106,9 @@ describe('visualTest command', () => {
       aiEnabled: true,
       options: {
         pixelDiffThreshold: 7,
-        provider: 'openai',
-        model: 'gpt-4.1-mini',
-        debug: true,
+        threshold: 0.2,
+        includeAA: true,
+        diffMask: true,
       },
     })
   })
@@ -135,11 +135,7 @@ describe('visualTest command', () => {
       generateBaseline: 'TRUE',
     })
 
-    visualTest('landing-page', {
-      capture: 'runner',
-      baselineDir: 'custom/baseline',
-      promptPath: 'prompts/rules.md',
-    })
+    visualTest('landing-page', { capture: 'runner' })
 
     expect(cypressStub.expose).toHaveBeenCalledWith('GENERATE_BASELINE')
     expect(screenshot).toHaveBeenCalledWith('landing-page', {
@@ -149,10 +145,6 @@ describe('visualTest command', () => {
     expect(task).toHaveBeenCalledWith('visualEvalGenerateBase', {
       name: 'landing-page',
       spec: 'spec.cy.ts',
-      options: {
-        baselineDir: 'custom/baseline',
-        promptPath: 'prompts/rules.md',
-      },
     })
   })
 

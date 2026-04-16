@@ -1,2 +1,2 @@
 export { visualEvalPlugin } from "./plugin"
-export type { VisualEvalPluginOptions, VisualEvalRuntimeOptions, VisualTestOptions } from "./types"
+export type { PixelmatchOptions, VisualDiffOptions, VisualEvalPluginOptions, VisualEvalTaskOptions, VisualTestOptions } from "./types"

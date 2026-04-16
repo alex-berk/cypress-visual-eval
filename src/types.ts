@@ -2,19 +2,30 @@
 import type { ProviderName } from './providers/factory'
 import type { VisualEvalProvider } from './providers/types'
 
-export interface VisualEvalRuntimeOptions {
+export interface PixelmatchOptions {
+  threshold?: number
+  includeAA?: boolean
+  alpha?: number
+  aaColor?: [number, number, number]
+  diffColor?: [number, number, number]
+  diffColorAlt?: [number, number, number]
+  diffMask?: boolean
+}
+
+export interface VisualEvalTaskOptions {
   pixelDiffThreshold?: number
+}
+
+export type VisualDiffOptions = VisualEvalTaskOptions & PixelmatchOptions
+
+export type VisualTestOptions = Cypress.ScreenshotOptions & VisualDiffOptions
+
+export interface VisualEvalPluginOptions extends VisualDiffOptions {
   baselineDir?: string
   screenshotsDir?: string
   promptPath?: string
   debug?: boolean
-  provider?: ProviderName
+  provider?: ProviderName | VisualEvalProvider
   model?: string
   apiKey?: string
-}
-
-export type VisualTestOptions = Cypress.ScreenshotOptions & VisualEvalRuntimeOptions
-
-export interface VisualEvalPluginOptions extends Omit<VisualEvalRuntimeOptions, 'provider'> {
-  provider?: ProviderName | VisualEvalProvider
 }
