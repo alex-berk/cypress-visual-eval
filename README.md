@@ -75,7 +75,13 @@ For local development, add to `cypress.env.json` (this file should be in `.gitig
 
 For CI, set it as an environment variable in your pipeline.
 
-The plugin resolves credentials in this order: `AI_VISUAL_API_KEY` env var → provider-specific env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`) → `cypress.env.json` → throws a clear error.
+The plugin resolves credentials in this order:
+
+- `apiKey` passed directly to `visualEvalPlugin(...)`
+- `AI_VISUAL_API_KEY` from Cypress env (for example, from `cypress.env.json`)
+- `AI_VISUAL_API_KEY` from the process environment
+- provider-specific process env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`)
+- throws a clear error if none are set
 
 ---
 
