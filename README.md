@@ -46,7 +46,6 @@ export default defineConfig({
       visualEvalPlugin(on, config, {
         provider: 'claude',          // 'claude' | 'openai' | 'gemini'
         baselineDir: 'cypress/baseline', // optional, this is the default
-        pixelDiffThreshold: 100, // number of pixel for acceptable diff, default is 0
         promptPath: 'cypress/prompts/visual-eval.md', // optional custom prompt file
       })
     }
@@ -90,21 +89,53 @@ it('renders the checkout page correctly', () => {
 })
 ```
 
-You can pass one flat options object as the second argument. It accepts standard Cypress screenshot options plus visual-eval runtime overrides:
+You can pass one flat options object as the second argument. It accepts:
+
+- standard Cypress screenshot options
+- `pixelDiffThreshold`
+- supported `pixelmatch` options:
+  - `threshold`
+  - `includeAA`
+  - `alpha`
+  - `aaColor`
+  - `diffColor`
+  - `diffColorAlt`
+  - `diffMask`
+
+Examples:
+
+1. Only `pixelDiffThreshold`
 
 ```js
-cy.visualTest('hero-mobile', { viewport: { width: 375, height: 812 } })
-cy.visualTest('hero-clip', { clip: { x: 0, y: 0, width: 400, height: 300 } })
 cy.visualTest('checkout-page', {
-  capture: 'viewport',
   pixelDiffThreshold: 8,
-  debug: true,
-  model: 'gpt-4.1-mini',
-  promptPath: 'cypress/prompts/checkout-review.md',
 })
 ```
 
-Per-call visual-eval options override the defaults configured in `visualEvalPlugin(on, config, ...)` for that run only.
+2. `pixelDiffThreshold` with Cypress screenshot options
+
+```js
+cy.visualTest('hero-mobile', {
+  capture: 'viewport',
+  clip: { x: 0, y: 0, width: 400, height: 300 },
+  blackout: ['[data-cy=clock]'],
+  pixelDiffThreshold: 8,
+})
+```
+
+3. `pixelDiffThreshold` with `pixelmatch` options
+
+```js
+cy.visualTest('checkout-page', {
+  pixelDiffThreshold: 8,
+  threshold: 0.2,
+  includeAA: true,
+  diffMask: true,
+  diffColor: [0, 255, 0],
+})
+```
+
+Plugin setup can also define global defaults for `pixelDiffThreshold` and any supported `pixelmatch` options. Per-test command options override those defaults for that run.
 
 ---
 
@@ -142,7 +173,7 @@ npm install -D openai                 # openai
 npm install -D @google/genai          # gemini
 ```
 
-You can override the model globally:
+You can override the model in plugin setup:
 
 ```js
 visualEvalPlugin(on, config, {
@@ -151,19 +182,9 @@ visualEvalPlugin(on, config, {
 })
 ```
 
-Or per call in the same flat object:
-
-```js
-cy.visualTest('settings-page', {
-  provider: 'openai',
-  model: 'gpt-4.1-mini',
-  pixelDiffThreshold: 6,
-})
-```
-
 ### Custom prompts
 
-By default, the plugin uses its built-in visual evaluation guidance. If you want to customize the AI reviewer, pass a `promptPath` that points to a `.md` or `.txt` file in plugin setup or per call:
+By default, the plugin uses its built-in visual evaluation guidance. If you want to customize the AI reviewer, pass a `promptPath` that points to a `.md` or `.txt` file in plugin setup:
 
 ```js
 import { defineConfig } from 'cypress'
@@ -178,10 +199,6 @@ export default defineConfig({
       })
     }
   }
-})
-
-cy.visualTest('checkout-page', {
-  promptPath: 'cypress/prompts/mobile-review.md',
 })
 ```
 
@@ -236,7 +253,7 @@ visualEvalPlugin(on, config, {
 })
 ```
 
-Custom provider instances are supported only in `visualEvalPlugin(...)`. Command-level overrides must stay serializable, so `cy.visualTest(..., { provider: ... })` only accepts `'claude'`, `'openai'`, or `'gemini'`.
+Custom provider instances are supported only in `visualEvalPlugin(...)`.
 
 The interface your class must implement:
 
