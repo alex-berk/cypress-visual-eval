@@ -224,12 +224,17 @@ jobs:
             exit 1
           fi
 
-          IFS=$'\t' read -r PR_ID HEAD_REF_OID AUTO_MERGE_ENABLED <<<"$(gh pr view "$PR_NUMBER" \
-            --json id,headRefOid,autoMergeRequest \
-            --jq '[.id, .headRefOid, (.autoMergeRequest != null)] | @tsv')"
+          IFS=$'\t' read -r PR_ID HEAD_REF_OID AUTO_MERGE_ENABLED MERGE_STATE_STATUS <<<"$(gh pr view "$PR_NUMBER" \
+            --json id,headRefOid,autoMergeRequest,mergeStateStatus \
+            --jq '[.id, .headRefOid, (.autoMergeRequest != null), .mergeStateStatus] | @tsv')"
 
           if [ "$AUTO_MERGE_ENABLED" = "true" ]; then
             echo "Auto-merge is already enabled for PR #$PR_NUMBER."
+            exit 0
+          fi
+
+          if [ "$MERGE_STATE_STATUS" = "CLEAN" ]; then
+            gh pr merge "$PR_NUMBER" --squash
             exit 0
           fi
 
