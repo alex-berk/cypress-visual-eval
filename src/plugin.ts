@@ -6,7 +6,7 @@ import { moveScreenshot } from "./tasks/moveScreenshot"
 import { imgDiff } from "./tasks/imgDiff"
 import { createProvider } from './providers/factory'
 import { buildSystemPrompt } from './providers/prompt'
-import { CompareResult } from './providers/types'
+import type { CompareResult, VisualEvalProvider } from './providers/types'
 import type { VisualDiffOptions, VisualEvalPluginOptions } from './types'
 
 type VisualEvalNodeGenerateBaseTaskPayload = {
@@ -29,6 +29,18 @@ export function visualEvalPlugin(
   const cypressScreenshotsFolder = config.screenshotsFolder as string
   const projectRoot = config.projectRoot || process.cwd()
   const resolvedPluginDefaults = resolvePluginDefaults(options, config, projectRoot)
+  let providerPromise: Promise<VisualEvalProvider | null> | undefined
+
+  function getProvider(): Promise<VisualEvalProvider | null> {
+    providerPromise ??= createProvider({
+      provider: resolvedPluginDefaults.provider,
+      model: resolvedPluginDefaults.model,
+      apiKey: resolvedPluginDefaults.apiKey,
+      systemPrompt: resolvedPluginDefaults.systemPrompt,
+    })
+
+    return providerPromise
+  }
 
   on('task', {
     visualEvalGenerateBase({ name, spec }: VisualEvalNodeGenerateBaseTaskPayload): string {
@@ -55,12 +67,7 @@ export function visualEvalPlugin(
         return { pass: true, reason: `Detected diff: ${pixelCount} <= threshold ${pixelDiffThreshold}` }
       }
       if (aiEnabled) {
-        const provider = await createProvider({
-          provider: resolvedPluginDefaults.provider,
-          model: resolvedPluginDefaults.model,
-          apiKey: resolvedPluginDefaults.apiKey,
-          systemPrompt: resolvedPluginDefaults.systemPrompt,
-        })
+        const provider = await getProvider()
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
         }

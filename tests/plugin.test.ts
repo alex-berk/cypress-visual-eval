@@ -395,6 +395,40 @@ describe('visualEvalPlugin', () => {
     })
   })
 
+  it('reuses the same provider instance across multiple AI compares', async () => {
+    const compare = vi.fn<() => Promise<CompareResult>>().mockResolvedValue({
+      pass: true,
+      reason: 'looks good',
+    })
+    createProvider.mockResolvedValue({ compare })
+    moveScreenshot.mockReturnValue('/tmp/eval/reused-provider.png')
+    imgDiff.mockReturnValue({
+      pixelCount: 4,
+      baselineBase64: 'baseline',
+      evalBase64: 'eval',
+      diffBase64: 'diff',
+    })
+
+    const { tasks } = await setupPlugin({ provider: 'openai' })
+
+    await tasks.visualEvalCompareScreenshots({
+      name: 'first-compare',
+      spec: 'reused-provider.cy.ts',
+      aiEnabled: true,
+      options: { pixelDiffThreshold: 0 },
+    })
+
+    await tasks.visualEvalCompareScreenshots({
+      name: 'second-compare',
+      spec: 'reused-provider.cy.ts',
+      aiEnabled: true,
+      options: { pixelDiffThreshold: 0 },
+    })
+
+    expect(createProvider).toHaveBeenCalledTimes(1)
+    expect(compare).toHaveBeenCalledTimes(2)
+  })
+
   it('uses plugin-level pixelDiffThreshold when the command does not override it', async () => {
     const compare = vi.fn<() => Promise<CompareResult>>()
     createProvider.mockResolvedValue({ compare })
