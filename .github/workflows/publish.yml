@@ -127,11 +127,14 @@ jobs:
     env:
       BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || 'main' }}
       BUMP_TYPE: ${{ needs.release-metadata.outputs.bump-type }}
+      RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+      RELEASE_PR_AUTH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN != '' && secrets.RELEASE_PR_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.BASE_REF }}
           fetch-depth: 0
+          token: ${{ env.RELEASE_PR_AUTH_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -177,15 +180,6 @@ jobs:
 
             core.setOutput('exists', 'false');
 
-      - name: Require release PR token
-        env:
-          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
-        run: |
-          if [ -z "$RELEASE_PR_TOKEN" ]; then
-            echo "::error::Missing RELEASE_PR_TOKEN secret. Use a PAT or GitHub App token so the release PR triggers CI and can be auto-merged."
-            exit 1
-          fi
-
       - name: Commit and push release branch
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"
@@ -204,7 +198,7 @@ jobs:
       - name: Open release PR
         if: steps.existing-pr.outputs.exists != 'true'
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ env.RELEASE_PR_AUTH_TOKEN }}
           BASE_REF: ${{ env.BASE_REF }}
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"
@@ -217,7 +211,7 @@ jobs:
 
       - name: Enable auto-merge for release PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ env.RELEASE_PR_AUTH_TOKEN }}
           BASE_REF: ${{ env.BASE_REF }}
           RELEASE_BRANCH: ${{ steps.versioning.outputs.branch }}
         run: |
