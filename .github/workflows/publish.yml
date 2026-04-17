@@ -177,6 +177,15 @@ jobs:
 
             core.setOutput('exists', 'false');
 
+      - name: Require release PR token
+        env:
+          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PR_TOKEN" ]; then
+            echo "::error::Missing RELEASE_PR_TOKEN secret. Use a PAT or GitHub App token so the release PR triggers CI and can be auto-merged."
+            exit 1
+          fi
+
       - name: Commit and push release branch
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"
@@ -195,7 +204,7 @@ jobs:
       - name: Open release PR
         if: steps.existing-pr.outputs.exists != 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
           BASE_REF: ${{ env.BASE_REF }}
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"
@@ -205,6 +214,26 @@ jobs:
             --head "$BRANCH" \
             --title "chore: release v$VERSION" \
             --body "Automated release PR for v$VERSION."
+
+      - name: Enable auto-merge for release PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          BASE_REF: ${{ env.BASE_REF }}
+          RELEASE_BRANCH: ${{ steps.versioning.outputs.branch }}
+        run: |
+          PR_NUMBER=$(gh pr list \
+            --base "$BASE_REF" \
+            --head "$RELEASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Could not find an open release PR for $RELEASE_BRANCH."
+            exit 1
+          fi
+
+          gh pr merge "$PR_NUMBER" --auto --squash
 
   build-and-test:
     needs: release-metadata
