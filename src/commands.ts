@@ -1,4 +1,5 @@
 /// <reference types="cypress" />
+import "./cypress"
 import { splitVisualTestOptions } from './options'
 import type { VisualTestOptions } from "./types"
 
