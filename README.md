@@ -61,6 +61,8 @@ In `cypress/support/e2e.js`:
 import 'cypress-visual-eval/commands'
 ```
 
+TypeScript users get the `cy.visualTest(...)` command typing from that import automatically. No extra `declare global` block is needed.
+
 The command runtime uses `Cypress.expose()` for flags such as baseline generation and AI-disable mode.
 
 ### 3. Add your API key
