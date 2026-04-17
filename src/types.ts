@@ -18,7 +18,9 @@ export interface VisualEvalTaskOptions {
 
 export type VisualDiffOptions = VisualEvalTaskOptions & PixelmatchOptions
 
-export type VisualTestOptions = Cypress.ScreenshotOptions & VisualDiffOptions
+export type VisualScreenshotOptions = Omit<Cypress.ScreenshotOptions, 'overwrite'>
+
+export type VisualTestOptions = VisualScreenshotOptions & VisualDiffOptions
 
 export interface VisualEvalPluginOptions extends VisualDiffOptions {
   baselineDir?: string

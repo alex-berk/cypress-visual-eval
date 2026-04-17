@@ -1,12 +1,13 @@
 /// <reference types="cypress" />
 import fs from 'fs'
 import path from 'path'
+import { mergeVisualDiffOptions, toPixelmatchOptions } from './options'
 import { moveScreenshot } from "./tasks/moveScreenshot"
 import { imgDiff } from "./tasks/imgDiff"
 import { createProvider } from './providers/factory'
 import { buildSystemPrompt } from './providers/prompt'
 import { CompareResult } from './providers/types'
-import type { PixelmatchOptions, VisualDiffOptions, VisualEvalPluginOptions } from './types'
+import type { VisualDiffOptions, VisualEvalPluginOptions } from './types'
 
 type VisualEvalNodeGenerateBaseTaskPayload = {
   name: string
@@ -37,16 +38,9 @@ export function visualEvalPlugin(
     async visualEvalCompareScreenshots({ name, spec, aiEnabled, options: diffOptions }: VisualEvalNodeCompareTaskPayload): Promise<CompareResult> {
       const screenshotsBaseFolder = resolvedPluginDefaults.baselineDir ?? path.join('cypress', 'baseline')
       const screenshotsEvalFolder = resolvedPluginDefaults.screenshotsDir ?? path.join(cypressScreenshotsFolder, 'visualEval')
-      const pixelDiffThreshold = diffOptions?.pixelDiffThreshold ?? resolvedPluginDefaults.pixelDiffThreshold ?? 0
-      const pixelmatchOptions: PixelmatchOptions = {
-        threshold: diffOptions?.threshold ?? resolvedPluginDefaults.threshold,
-        includeAA: diffOptions?.includeAA ?? resolvedPluginDefaults.includeAA,
-        alpha: diffOptions?.alpha ?? resolvedPluginDefaults.alpha,
-        aaColor: diffOptions?.aaColor ?? resolvedPluginDefaults.aaColor,
-        diffColor: diffOptions?.diffColor ?? resolvedPluginDefaults.diffColor,
-        diffColorAlt: diffOptions?.diffColorAlt ?? resolvedPluginDefaults.diffColorAlt,
-        diffMask: diffOptions?.diffMask ?? resolvedPluginDefaults.diffMask,
-      }
+      const resolvedDiffOptions = mergeVisualDiffOptions(resolvedPluginDefaults, diffOptions)
+      const pixelDiffThreshold = resolvedDiffOptions.pixelDiffThreshold ?? 0
+      const pixelmatchOptions = toPixelmatchOptions(resolvedDiffOptions)
 
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
       const { pixelCount, baselineBase64, evalBase64, diffBase64 } =
