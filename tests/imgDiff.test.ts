@@ -79,10 +79,22 @@ describe('imgDiff', () => {
     fs.writeFileSync(path.join(baseDir, 'thresh.png'), createPng(10, 10, 200, 0, 0))
     fs.writeFileSync(path.join(evalDir, 'thresh.png'), createPng(10, 10, 210, 0, 0))
 
-    const strict = imgDiff('thresh', baseDir, evalDir, 0.01)
-    const lenient = imgDiff('thresh', baseDir, evalDir, 1.0)
+    const strict = imgDiff('thresh', baseDir, evalDir, { threshold: 0.01 })
+    const lenient = imgDiff('thresh', baseDir, evalDir, { threshold: 1.0 })
 
     expect(lenient.pixelCount).toBeLessThanOrEqual(strict.pixelCount)
+  })
+
+  it('accepts additional pixelmatch options', () => {
+    fs.writeFileSync(path.join(baseDir, 'mask.png'), createPng(10, 10, 200, 0, 0))
+    fs.writeFileSync(path.join(evalDir, 'mask.png'), createPng(10, 10, 210, 0, 0))
+
+    expect(() => imgDiff('mask', baseDir, evalDir, {
+      threshold: 0.2,
+      includeAA: true,
+      diffMask: true,
+      diffColor: [0, 255, 0],
+    })).not.toThrow()
   })
 
   it('throws when baseline image is missing', () => {

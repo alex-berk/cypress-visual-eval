@@ -1,4 +1,5 @@
 # cypress-visual-eval
+
 ![NPM Version](https://img.shields.io/npm/v/cypress-visual-eval?style=flat-square&color=blue)
 
 AI-powered visual regression testing for Cypress. Takes a screenshot, compares it to a baseline using pixel diffing, and — only when a difference is detected — uses a vision AI model to decide whether the difference is a real bug or acceptable variance.
@@ -74,7 +75,13 @@ For local development, add to `cypress.env.json` (this file should be in `.gitig
 
 For CI, set it as an environment variable in your pipeline.
 
-The plugin resolves credentials in this order: `AI_VISUAL_API_KEY` env var → provider-specific env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`) → `cypress.env.json` → throws a clear error.
+The plugin resolves credentials in this order:
+
+- `apiKey` passed directly to `visualEvalPlugin(...)`
+- `AI_VISUAL_API_KEY` from Cypress env (for example, from `cypress.env.json`)
+- `AI_VISUAL_API_KEY` from the process environment
+- provider-specific process env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`)
+- throws a clear error if none are set
 
 ---
 
@@ -88,12 +95,73 @@ it('renders the checkout page correctly', () => {
 })
 ```
 
-You can pass any standard Cypress screenshot options as the second argument:
+You can pass one flat options object as the second argument to `cy.visualTest(...)`.
+
+`pixelDiffThreshold`
+
+- Optional
+- Default: `0`
+- This is the plugin's own threshold for how many changed pixels are allowed before the test fails or falls back to AI
 
 ```js
-cy.visualTest('hero-mobile', { viewport: { width: 375, height: 812 } })
-cy.visualTest('hero-clip', { clip: { x: 0, y: 0, width: 400, height: 300 } })
+cy.visualTest('checkout-page', {
+  pixelDiffThreshold: 8,
+})
 ```
+
+Cypress screenshot options
+
+- Optional
+- Any standard [`cy.screenshot()` options](https://docs.cypress.io/api/commands/screenshot) can be passed in the same object
+
+```js
+cy.visualTest('hero-mobile', {
+  capture: 'viewport',
+})
+
+cy.visualTest('hero-clip', {
+  clip: { x: 0, y: 0, width: 400, height: 300 },
+  blackout: ['[data-cy=clock]'],
+})
+```
+
+`pixelmatch` options
+
+- Optional
+- Supported [`pixelmatch` options](https://github.com/mapbox/pixelmatch#api):
+  - `threshold`
+  - `includeAA`
+  - `alpha`
+  - `aaColor`
+  - `diffColor`
+  - `diffColorAlt`
+  - `diffMask`
+
+```js
+cy.visualTest('checkout-page', {
+  threshold: 0.2,
+  includeAA: true,
+  diffMask: true,
+  diffColor: [0, 255, 0],
+})
+```
+
+Combining options
+
+```js
+cy.visualTest('checkout-page', {
+  pixelDiffThreshold: 8,
+  capture: 'viewport',
+  clip: { x: 0, y: 0, width: 400, height: 300 },
+  threshold: 0.2,
+  includeAA: true,
+  diffMask: true,
+})
+```
+
+`overwrite` is always forced to `true` so repeated runs keep writing to deterministic screenshot paths.
+
+Plugin setup can also define global defaults for `pixelDiffThreshold` and any supported `pixelmatch` options. Per-test command options override those defaults for that run.
 
 ---
 
@@ -131,7 +199,7 @@ npm install -D openai                 # openai
 npm install -D @google/genai          # gemini
 ```
 
-You can override the model:
+You can override the model in plugin setup:
 
 ```js
 visualEvalPlugin(on, config, {
@@ -142,7 +210,7 @@ visualEvalPlugin(on, config, {
 
 ### Custom prompts
 
-By default, the plugin uses its built-in visual evaluation guidance. If you want to customize the AI reviewer, pass a `promptPath` that points to a `.md` or `.txt` file:
+By default, the plugin uses its built-in visual evaluation guidance. If you want to customize the AI reviewer, pass a `promptPath` that points to a `.md` or `.txt` file in plugin setup:
 
 ```js
 import { defineConfig } from 'cypress'
@@ -210,6 +278,8 @@ visualEvalPlugin(on, config, {
   provider: new MyCustomProvider(),
 })
 ```
+
+Custom provider instances are supported only in `visualEvalPlugin(...)`.
 
 The interface your class must implement:
 

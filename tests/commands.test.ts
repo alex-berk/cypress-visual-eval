@@ -88,17 +88,28 @@ describe('visualTest command', () => {
       specName: 'nested/spec.cy.ts',
     })
 
-    visualTest('auth/login/form', { capture: 'viewport', pixelDiffThreshold: 7 })
+    visualTest('auth/login/form', {
+      capture: 'viewport',
+      pixelDiffThreshold: 7,
+      threshold: 0.2,
+      includeAA: true,
+      diffMask: true,
+    })
 
     expect(screenshot).toHaveBeenCalledWith('ve-auth/login/form', {
-      overwrite: true,
       capture: 'viewport',
+      overwrite: true,
     })
     expect(task).toHaveBeenCalledWith('visualEvalCompareScreenshots', {
       name: 'auth/login/form',
       spec: 'nested/spec.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: 7,
+      options: {
+        pixelDiffThreshold: 7,
+        threshold: 0.2,
+        includeAA: true,
+        diffMask: true,
+      },
     })
   })
 
@@ -115,7 +126,7 @@ describe('visualTest command', () => {
       name: 'dashboard/summary',
       spec: 'spec.cy.ts',
       aiEnabled: false,
-      pixelDiffThreshold: undefined,
+      options: {},
     })
   })
 
@@ -128,8 +139,8 @@ describe('visualTest command', () => {
 
     expect(cypressStub.expose).toHaveBeenCalledWith('GENERATE_BASELINE')
     expect(screenshot).toHaveBeenCalledWith('landing-page', {
-      overwrite: true,
       capture: 'runner',
+      overwrite: true,
     })
     expect(task).toHaveBeenCalledWith('visualEvalGenerateBase', {
       name: 'landing-page',
@@ -147,7 +158,27 @@ describe('visualTest command', () => {
       name: 'checkout',
       spec: 'spec.cy.ts',
       aiEnabled: true,
-      pixelDiffThreshold: undefined,
+      options: {},
+    })
+  })
+
+  it('always forces overwrite=true even if it is passed manually', async () => {
+    const { visualTest, screenshot, task } = await loadCommand()
+
+    visualTest('checkout', {
+      capture: 'viewport',
+      overwrite: false,
+    } as any)
+
+    expect(screenshot).toHaveBeenCalledWith('ve-checkout', {
+      capture: 'viewport',
+      overwrite: true,
+    })
+    expect(task).toHaveBeenCalledWith('visualEvalCompareScreenshots', {
+      name: 'checkout',
+      spec: 'spec.cy.ts',
+      aiEnabled: true,
+      options: {},
     })
   })
 

@@ -1,47 +1,63 @@
 /// <reference types="cypress" />
 import fs from 'fs'
 import path from 'path'
-import { moveScreenshot } from "./tasks/moveScreenshot";
-import { imgDiff } from "./tasks/imgDiff";
-import { createProvider, ProviderConfig } from './providers/factory';
-import { buildSystemPrompt } from './providers/prompt';
-import { CompareResult } from './providers/types';
+import { mergeVisualDiffOptions, toPixelmatchOptions } from './options'
+import { moveScreenshot } from "./tasks/moveScreenshot"
+import { imgDiff } from "./tasks/imgDiff"
+import { createProvider } from './providers/factory'
+import { buildSystemPrompt } from './providers/prompt'
+import type { CompareResult, VisualEvalProvider } from './providers/types'
+import type { VisualDiffOptions, VisualEvalPluginOptions } from './types'
 
-export type VisualEvalOptions = ProviderConfig & {
-  baselineDir?: string,
-  screenshotsDir?: string,
-  promptPath?: string,
-  debug?: boolean
+type VisualEvalNodeGenerateBaseTaskPayload = {
+  name: string
+  spec: string
+}
+
+type VisualEvalNodeCompareTaskPayload = {
+  name: string
+  spec: string
+  aiEnabled: boolean
+  options?: VisualDiffOptions
 }
 
 export function visualEvalPlugin(
   on: Cypress.PluginEvents,
   config: Cypress.PluginConfigOptions,
-  options: VisualEvalOptions = {}
+  options: VisualEvalPluginOptions = {}
 ) {
   const cypressScreenshotsFolder = config.screenshotsFolder as string
-  const screenshotsBaseFolder = options.baselineDir ?? path.join('cypress', 'baseline')
-  const screenshotsEvalFolder = options.screenshotsDir ?? path.join(cypressScreenshotsFolder, 'visualEval')
   const projectRoot = config.projectRoot || process.cwd()
-  const customPrompt = options.promptPath ? readPromptFile(options.promptPath, projectRoot) : undefined
-  const apiKey = options.apiKey || config.env?.AI_VISUAL_API_KEY
+  const resolvedPluginDefaults = resolvePluginDefaults(options, config, projectRoot)
+  let providerPromise: Promise<VisualEvalProvider | null> | undefined
 
-  const providerPromise = createProvider({
-    provider: options.provider,
-    model: options.model,
-    apiKey,
-    systemPrompt: buildSystemPrompt(customPrompt),
-  })
+  function getProvider(): Promise<VisualEvalProvider | null> {
+    providerPromise ??= createProvider({
+      provider: resolvedPluginDefaults.provider,
+      model: resolvedPluginDefaults.model,
+      apiKey: resolvedPluginDefaults.apiKey,
+      systemPrompt: resolvedPluginDefaults.systemPrompt,
+    })
+
+    return providerPromise
+  }
 
   on('task', {
-    visualEvalGenerateBase({ name, spec }: { name: string, spec: string }): string {
+    visualEvalGenerateBase({ name, spec }: VisualEvalNodeGenerateBaseTaskPayload): string {
+      const screenshotsBaseFolder = resolvedPluginDefaults.baselineDir ?? path.join('cypress', 'baseline')
       return moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsBaseFolder)
     },
-    async visualEvalCompareScreenshots({ name, spec, aiEnabled, pixelDiffThreshold = 0 }: { name: string, spec: string, aiEnabled: boolean, pixelDiffThreshold?: number }): Promise<CompareResult> {
+    async visualEvalCompareScreenshots({ name, spec, aiEnabled, options: diffOptions }: VisualEvalNodeCompareTaskPayload): Promise<CompareResult> {
+      const screenshotsBaseFolder = resolvedPluginDefaults.baselineDir ?? path.join('cypress', 'baseline')
+      const screenshotsEvalFolder = resolvedPluginDefaults.screenshotsDir ?? path.join(cypressScreenshotsFolder, 'visualEval')
+      const resolvedDiffOptions = mergeVisualDiffOptions(resolvedPluginDefaults, diffOptions)
+      const pixelDiffThreshold = resolvedDiffOptions.pixelDiffThreshold ?? 0
+      const pixelmatchOptions = toPixelmatchOptions(resolvedDiffOptions)
+
       moveScreenshot(name, spec, cypressScreenshotsFolder, screenshotsEvalFolder, 've-')
       const { pixelCount, baselineBase64, evalBase64, diffBase64 } =
-        imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder)
-      if (options.debug) {
+        imgDiff(name, screenshotsBaseFolder, screenshotsEvalFolder, pixelmatchOptions)
+      if (resolvedPluginDefaults.debug) {
         console.log(`[cypress-visual-eval] Detected diff: ${pixelCount}, threshold: ${pixelDiffThreshold}`)
       }
       if (pixelCount === 0) {
@@ -51,12 +67,12 @@ export function visualEvalPlugin(
         return { pass: true, reason: `Detected diff: ${pixelCount} <= threshold ${pixelDiffThreshold}` }
       }
       if (aiEnabled) {
-        const provider = await providerPromise
+        const provider = await getProvider()
         if (!provider) {
           return { pass: false, reason: 'Difference detected, AI fallback is not configured' }
         }
-        const result = await provider.compare(baselineBase64, evalBase64, diffBase64);
-        if (options.debug) {
+        const result = await provider.compare(baselineBase64, evalBase64, diffBase64)
+        if (resolvedPluginDefaults.debug) {
           console.log(`[cypress-visual-eval] "${name}" — pass: ${result.pass}, reason: ${result.reason}`)
         }
         return result
@@ -64,6 +80,21 @@ export function visualEvalPlugin(
       return { pass: false, reason: `Diff of ${pixelCount} pixels exceeds threshold of ${pixelDiffThreshold}, AI fallback disabled` }
     }
   })
+}
+
+function resolvePluginDefaults(
+  options: VisualEvalPluginOptions,
+  config: Cypress.PluginConfigOptions,
+  projectRoot: string
+) {
+  const apiKey = options.apiKey || config.env?.AI_VISUAL_API_KEY
+  const customPrompt = options.promptPath ? readPromptFile(options.promptPath, projectRoot) : undefined
+
+  return {
+    ...options,
+    apiKey,
+    systemPrompt: buildSystemPrompt(customPrompt),
+  }
 }
 
 function readPromptFile(promptPath: string, projectRoot: string): string {
