@@ -95,11 +95,40 @@ it('renders the checkout page correctly', () => {
 })
 ```
 
-You can pass one flat options object as the second argument. It accepts:
+You can pass one flat options object as the second argument to `cy.visualTest(...)`.
 
-- Cypress screenshot options except `overwrite`
-- `pixelDiffThreshold`
-- supported `pixelmatch` options:
+`pixelDiffThreshold`
+
+- Optional
+- Default: `0`
+- This is the plugin's own threshold for how many changed pixels are allowed before the test fails or falls back to AI
+
+```js
+cy.visualTest('checkout-page', {
+  pixelDiffThreshold: 8,
+})
+```
+
+Cypress screenshot options
+
+- Optional
+- Any standard [`cy.screenshot()` options](https://docs.cypress.io/api/commands/screenshot) can be passed in the same object
+
+```js
+cy.visualTest('hero-mobile', {
+  capture: 'viewport',
+})
+
+cy.visualTest('hero-clip', {
+  clip: { x: 0, y: 0, width: 400, height: 300 },
+  blackout: ['[data-cy=clock]'],
+})
+```
+
+`pixelmatch` options
+
+- Optional
+- Supported [`pixelmatch` options](https://github.com/mapbox/pixelmatch#api):
   - `threshold`
   - `includeAA`
   - `alpha`
@@ -108,36 +137,25 @@ You can pass one flat options object as the second argument. It accepts:
   - `diffColorAlt`
   - `diffMask`
 
-Examples:
-
-1. Only `pixelDiffThreshold`
-
 ```js
 cy.visualTest('checkout-page', {
-  pixelDiffThreshold: 8,
-})
-```
-
-2. `pixelDiffThreshold` with Cypress screenshot options
-
-```js
-cy.visualTest('hero-mobile', {
-  capture: 'viewport',
-  clip: { x: 0, y: 0, width: 400, height: 300 },
-  blackout: ['[data-cy=clock]'],
-  pixelDiffThreshold: 8,
-})
-```
-
-3. `pixelDiffThreshold` with `pixelmatch` options
-
-```js
-cy.visualTest('checkout-page', {
-  pixelDiffThreshold: 8,
   threshold: 0.2,
   includeAA: true,
   diffMask: true,
   diffColor: [0, 255, 0],
+})
+```
+
+Combining options
+
+```js
+cy.visualTest('checkout-page', {
+  pixelDiffThreshold: 8,
+  capture: 'viewport',
+  clip: { x: 0, y: 0, width: 400, height: 300 },
+  threshold: 0.2,
+  includeAA: true,
+  diffMask: true,
 })
 ```
 
