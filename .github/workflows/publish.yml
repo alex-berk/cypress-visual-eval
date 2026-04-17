@@ -177,15 +177,6 @@ jobs:
 
             core.setOutput('exists', 'false');
 
-      - name: Require release PR token
-        env:
-          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
-        run: |
-          if [ -z "$RELEASE_PR_TOKEN" ]; then
-            echo "::error::Missing RELEASE_PR_TOKEN secret. Use a PAT or GitHub App token so the release PR triggers CI and can be auto-merged."
-            exit 1
-          fi
-
       - name: Commit and push release branch
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"

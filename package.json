@@ -1,6 +1,6 @@
 {
   "name": "cypress-visual-eval",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "AI-powered visual regression evaluation for Cypress",
   "main": "dist/index.js",
   "module": "dist/index.js",
