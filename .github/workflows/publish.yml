@@ -127,14 +127,11 @@ jobs:
     env:
       BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || 'main' }}
       BUMP_TYPE: ${{ needs.release-metadata.outputs.bump-type }}
-      RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
-      RELEASE_PR_AUTH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN != '' && secrets.RELEASE_PR_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.BASE_REF }}
           fetch-depth: 0
-          token: ${{ env.RELEASE_PR_AUTH_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -198,7 +195,7 @@ jobs:
       - name: Open release PR
         if: steps.existing-pr.outputs.exists != 'true'
         env:
-          GH_TOKEN: ${{ env.RELEASE_PR_AUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
           BASE_REF: ${{ env.BASE_REF }}
         run: |
           VERSION="${{ steps.versioning.outputs.version }}"
@@ -211,7 +208,7 @@ jobs:
 
       - name: Enable auto-merge for release PR
         env:
-          GH_TOKEN: ${{ env.RELEASE_PR_AUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
           BASE_REF: ${{ env.BASE_REF }}
           RELEASE_BRANCH: ${{ steps.versioning.outputs.branch }}
         run: |
@@ -227,7 +224,30 @@ jobs:
             exit 1
           fi
 
-          gh pr merge "$PR_NUMBER" --auto --squash
+          IFS=$'\t' read -r PR_ID HEAD_REF_OID AUTO_MERGE_ENABLED <<<"$(gh pr view "$PR_NUMBER" \
+            --json id,headRefOid,autoMergeRequest \
+            --jq '[.id, .headRefOid, (.autoMergeRequest != null)] | @tsv')"
+
+          if [ "$AUTO_MERGE_ENABLED" = "true" ]; then
+            echo "Auto-merge is already enabled for PR #$PR_NUMBER."
+            exit 0
+          fi
+
+          gh api graphql \
+            -f pullRequestId="$PR_ID" \
+            -f expectedHeadOid="$HEAD_REF_OID" \
+            -f query='
+              mutation($pullRequestId: ID!, $expectedHeadOid: GitObjectID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $pullRequestId
+                  expectedHeadOid: $expectedHeadOid
+                  mergeMethod: SQUASH
+                }) {
+                  pullRequest {
+                    number
+                  }
+                }
+              }'
 
   build-and-test:
     needs: release-metadata
