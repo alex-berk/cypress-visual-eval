@@ -97,7 +97,7 @@ it('renders the checkout page correctly', () => {
 
 You can pass one flat options object as the second argument. It accepts:
 
-- standard Cypress screenshot options
+- Cypress screenshot options except `overwrite`
 - `pixelDiffThreshold`
 - supported `pixelmatch` options:
   - `threshold`
@@ -140,6 +140,8 @@ cy.visualTest('checkout-page', {
   diffColor: [0, 255, 0],
 })
 ```
+
+`overwrite` is always forced to `true` so repeated runs keep writing to deterministic screenshot paths.
 
 Plugin setup can also define global defaults for `pixelDiffThreshold` and any supported `pixelmatch` options. Per-test command options override those defaults for that run.
 
