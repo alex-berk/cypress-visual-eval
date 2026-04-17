@@ -162,6 +162,26 @@ describe('visualTest command', () => {
     })
   })
 
+  it('always forces overwrite=true even if it is passed manually', async () => {
+    const { visualTest, screenshot, task } = await loadCommand()
+
+    visualTest('checkout', {
+      capture: 'viewport',
+      overwrite: false,
+    } as any)
+
+    expect(screenshot).toHaveBeenCalledWith('ve-checkout', {
+      capture: 'viewport',
+      overwrite: true,
+    })
+    expect(task).toHaveBeenCalledWith('visualEvalCompareScreenshots', {
+      name: 'checkout',
+      spec: 'spec.cy.ts',
+      aiEnabled: true,
+      options: {},
+    })
+  })
+
   it('surfaces the compare failure reason through the command assertion', async () => {
     const { visualTest } = await loadCommand({
       taskResult: { pass: false, reason: 'Visual regression detected' },
