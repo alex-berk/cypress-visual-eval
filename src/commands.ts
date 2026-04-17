@@ -21,12 +21,4 @@ Cypress.Commands.add('visualTest', (name: string, options?: VisualTestOptions) =
   }
 })
 
-declare global {
-  namespace Cypress {
-    interface Chainable {
-      visualTest(name: string, options?: VisualTestOptions): Chainable<void>
-    }
-  }
-}
-
 export { }
